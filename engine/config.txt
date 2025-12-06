@@ -1,0 +1,2 @@
+initial_console_output_enabled=true
+debug_enabled=true

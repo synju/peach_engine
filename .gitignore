@@ -1,0 +1,10 @@
+.idea/
+.requirements.txt.un~
+engine/__pycache__/
+plant_sim/__pycache__/
+plant_sim/assets/models/
+plant_sim/scenes/__pycache__/
+texture_painter/__pycache__/
+texture_painter/gui/__pycache__/
+texture_painter/scenes/__pycache__/
+venv_windows/
