@@ -1,20 +1,20 @@
 from engine.peach_engine import PeachEngine
-from plant_sim.scenes.flatlands import FlatlandsScene
+from pod_hotel.scenes.workshop import WorkshopScene
 
 if __name__ == '__main__':
     # Create engine
     engine = PeachEngine(
         width=1280,
         height=720,
-        title="Plant Sim",
+        title="Area 43",
         fps=60
     )
 
     # Add scenes
-    engine.scene_handler.add_scene('flatlands', FlatlandsScene(engine))
+    engine.scene_handler.add_scene('workshop', WorkshopScene(engine))
 
     # Set starting scene
-    engine.scene_handler.set_scene('flatlands')
+    engine.scene_handler.set_scene('workshop')
 
-    # Run the engine
+    # Run the engine\
     engine.run()

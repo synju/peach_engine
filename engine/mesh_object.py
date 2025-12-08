@@ -7,7 +7,7 @@ base: ShowBase
 class MeshObject:
 	"""A 3D mesh with position, rotation, scale, and visibility"""
 
-	def __init__(self, engine, name='MeshObject', model_path=None):
+	def __init__(self, engine, name='MeshObject', model_path=None, position=None, rotation=None, scale=None):
 		self.engine = engine
 		self.name = name
 		self.model = None
@@ -28,6 +28,14 @@ class MeshObject:
 		# Load model if path provided
 		if model_path:
 			self.load_model(model_path)
+
+		# Apply initial transforms
+		if position:
+			self.position = position
+		if rotation:
+			self.rotation = rotation
+		if scale:
+			self.scale = scale
 
 	# Position
 	@property

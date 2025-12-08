@@ -825,11 +825,12 @@ void main() {
         else:
             local_pos = world_pos
 
-        # Convert brush size from pixels to world units
-        if self._avg_uv_scale > 0.001:
-            world_radius = (size / 2) / (self.texture_size * self._avg_uv_scale)
-        else:
-            world_radius = size / self.texture_size
+        # Convert brush size to world units
+        # Must match the cursor radius calculation: brush_size * 0.01
+        world_radius = size * 0.01
+
+        if log:
+            print(f"DEBUG: size={size} world_radius={world_radius:.4f}")
 
         # Helper to compute triangle normal
         def get_normal(v0, v1, v2):
@@ -963,6 +964,9 @@ void main() {
             # Distance from brush center to this edge
             edge_dist, t_along_edge = point_to_line_dist(local_pos, va, vb)
 
+            if log:
+                print(f"  Edge: dist={edge_dist:.4f} radius={world_radius:.4f} overlap={edge_dist < world_radius}")
+
             # If brush overlaps this edge
             if edge_dist < world_radius:
                 # Find adjacent triangles on this edge
@@ -1004,27 +1008,48 @@ void main() {
                     else:
                         adj_t = 1.0 - t_along_edge
 
-                    # Compute UV directly from adjacent edge's UV coordinates
-                    adj_uv = Vec2(
+                    # Get edge UV point
+                    edge_uv = Vec2(
                         adj_uv_start.x + adj_t * (adj_uv_end.x - adj_uv_start.x),
                         adj_uv_start.y + adj_t * (adj_uv_end.y - adj_uv_start.y)
                     )
 
+                    # Find direction perpendicular to edge in UV space, pointing into face B
+                    third_uv = None
+                    for tv, tuv in [(adj_v0, adj_uv0), (adj_v1, adj_uv1), (adj_v2, adj_uv2)]:
+                        dist_to_start = math.sqrt((tv.x-adj_v_start.x)**2 + (tv.y-adj_v_start.y)**2 + (tv.z-adj_v_start.z)**2)
+                        dist_to_end = math.sqrt((tv.x-adj_v_end.x)**2 + (tv.y-adj_v_end.y)**2 + (tv.z-adj_v_end.z)**2)
+                        if dist_to_start > 0.001 and dist_to_end > 0.001:
+                            third_uv = tuv
+                            break
+
+                    # Convert edge_dist from world units to UV units
+                    uv_offset = edge_dist * self._avg_uv_scale
+                    adj_uv = edge_uv  # default
+
+                    if third_uv is not None:
+                        edge_mid_uv = Vec2(
+                            (adj_uv_start.x + adj_uv_end.x) / 2,
+                            (adj_uv_start.y + adj_uv_end.y) / 2
+                        )
+                        into_dir = Vec2(
+                            third_uv.x - edge_mid_uv.x,
+                            third_uv.y - edge_mid_uv.y
+                        )
+                        into_len = math.sqrt(into_dir.x**2 + into_dir.y**2)
+
+                        if into_len > 0.0001:
+                            into_dir = Vec2(into_dir.x / into_len, into_dir.y / into_len)
+                            adj_uv = Vec2(
+                                edge_uv.x + into_dir.x * uv_offset,
+                                edge_uv.y + into_dir.y * uv_offset
+                            )
+
+                    # Paint full brush at offset position on face B
                     if log:
-                        print(f"  Cross-edge: t={t_along_edge:.2f} adj_t={adj_t:.2f} va_matches={va_matches_start}")
-                        print(f"    Primary edge UV: ({uva.x:.3f},{uva.y:.3f})->({uvb.x:.3f},{uvb.y:.3f})")
-                        print(f"    Adj edge UV: ({adj_uv_start.x:.3f},{adj_uv_start.y:.3f})->({adj_uv_end.x:.3f},{adj_uv_end.y:.3f})")
-                        print(f"    Result UV: ({adj_uv.x:.3f},{adj_uv.y:.3f})")
-
-                    # Calculate how far into the adjacent face the brush extends
-                    overlap_dist = world_radius - edge_dist
-
-                    # Paint with reduced size based on overlap
-                    overlap_ratio = overlap_dist / world_radius
-                    adj_size = size * overlap_ratio
-                    if adj_size > 1:
-                        self.paint_at_uv(adj_uv, color, adj_size, opacity, hardness, shape, layer_index)
-                        painted_any = True
+                        print(f"  Cross-edge: edge_dist={edge_dist:.4f} uv_offset={uv_offset:.4f} adj_uv=({adj_uv.x:.3f},{adj_uv.y:.3f})")
+                    self.paint_at_uv(adj_uv, color, size, opacity, hardness, shape, layer_index)
+                    painted_any = True
 
         return painted_any
 
@@ -1164,8 +1189,12 @@ void main() {
                 if inside:
                     alpha = (opacity / 100.0) * falloff
 
-                    x = (px + dx) % self.texture_size
-                    y = (py + dy) % self.texture_size
+                    x = px + dx
+                    y = py + dy
+
+                    # Skip pixels outside texture bounds (no wrapping!)
+                    if x < 0 or x >= self.texture_size or y < 0 or y >= self.texture_size:
+                        continue
 
                     if alpha > 0.001:  # Lower threshold for softer edges
                         old_r = img.getRed(x, y)

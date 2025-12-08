@@ -12,11 +12,11 @@ base: ShowBase
 class Light:
 	"""Base class for all lights"""
 
-	def __init__(self, engine, name='Light', color=(1, 1, 1, 1)):
+	def __init__(self, engine, name='Light', color=(1, 1, 1, 1), light_enabled=True):
 		self.engine = engine
 		self.name = name
 		self._color = list(color)
-		self._enabled = True
+		self._enabled = light_enabled
 		self.light = None
 		self.node = None
 		self._position = [0, 0, 0]
@@ -102,6 +102,18 @@ class Light:
 		self._position = list(value)
 		self._update_debug_icon()
 
+	def turn_on(self):
+		"""Turn the light on"""
+		self.enabled = True
+
+	def turn_off(self):
+		"""Turn the light off"""
+		self.enabled = False
+
+	def toggle_light(self):
+		"""Toggle light on/off"""
+		self.enabled = not self._enabled
+
 	def update(self):
 		"""Call each frame to update debug icon visibility"""
 		self._update_debug_icon()
@@ -116,17 +128,19 @@ class Light:
 		self.light = None
 		self.node = None
 
+
 class AmbientLight(Light):
 	"""Ambient light - illuminates everything equally"""
 
-	def __init__(self, engine, name='AmbientLight', color=(0.2, 0.2, 0.2, 1)):
-		super().__init__(engine, name, color)
+	def __init__(self, engine, name='AmbientLight', color=(0.2, 0.2, 0.2, 1), light_enabled=True):
+		super().__init__(engine, name, color, light_enabled)
 
 		self.light = PandaAmbientLight(name)
 		self.light.setColor(Vec4(*self._color))
 
 		self.node = base.render.attachNewNode(self.light)
-		base.render.setLight(self.node)
+		if self._enabled:
+			base.render.setLight(self.node)
 
 	def _update_debug_icon(self):
 		"""Ambient light has no position - skip debug icon"""
@@ -135,17 +149,82 @@ class AmbientLight(Light):
 class DirectionalLight(Light):
 	"""Directional light - like the sun, parallel rays"""
 
-	def __init__(self, engine, name='DirectionalLight', color=(1, 1, 1, 1), direction=(0, 0, -1), position=(0, 0, 10)):
-		super().__init__(engine, name, color)
+	def __init__(self, engine, name='DirectionalLight', color=(1, 1, 1, 1), direction=(0, 0, -1), position=(0, 0, 10), light_enabled=True):
+		super().__init__(engine, name, color, light_enabled)
 		self._direction = list(direction)
 		self._position = list(position)
+		self._debug_arrow = None
 
 		self.light = PandaDirectionalLight(name)
 		self.light.setColor(Vec4(*self._color))
 
 		self.node = base.render.attachNewNode(self.light)
 		self.direction = direction
-		base.render.setLight(self.node)
+		if self._enabled:
+			base.render.setLight(self.node)
+
+	def _create_debug_arrow(self):
+		"""Create arrow showing light direction"""
+		if self._debug_arrow:
+			self._debug_arrow.removeNode()
+
+		from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexWriter
+		from panda3d.core import Geom, GeomLines, GeomNode, NodePath
+
+		# Arrow length
+		length = 3
+		dx, dy, dz = self._direction
+		# Normalize
+		mag = (dx * dx + dy * dy + dz * dz) ** 0.5
+		if mag > 0:
+			dx, dy, dz = dx / mag, dy / mag, dz / mag
+
+		# Arrow end point
+		end = (
+			self._position[0] + dx * length,
+			self._position[1] + dy * length,
+			self._position[2] + dz * length
+		)
+
+		# Create line geometry
+		format = GeomVertexFormat.get_v3c4()
+		vdata = GeomVertexData('arrow', format, Geom.UHStatic)
+		vdata.setNumRows(2)
+
+		vertex = GeomVertexWriter(vdata, 'vertex')
+		color_writer = GeomVertexWriter(vdata, 'color')
+
+		# Main line
+		vertex.addData3(*self._position)
+		vertex.addData3(*end)
+		color_writer.addData4(1, 1, 0, 1)  # Yellow
+		color_writer.addData4(1, 0.5, 0, 1)  # Orange at tip
+
+		lines = GeomLines(Geom.UHStatic)
+		lines.addVertices(0, 1)
+		lines.closePrimitive()
+
+		geom = Geom(vdata)
+		geom.addPrimitive(lines)
+
+		node = GeomNode('direction_arrow')
+		node.addGeom(geom)
+
+		self._debug_arrow = base.render.attachNewNode(node)
+		self._debug_arrow.setRenderModeThickness(3)
+		self._debug_arrow.setLightOff()
+		self._debug_arrow.setBin('fixed', 100)
+
+	def _update_debug_icon(self):
+		"""Update debug icon and arrow visibility"""
+		super()._update_debug_icon()
+
+		if self.engine.debug_enabled:
+			self._create_debug_arrow()
+			self._debug_arrow.show()
+		else:
+			if self._debug_arrow:
+				self._debug_arrow.hide()
 
 	@property
 	def direction(self):
@@ -155,8 +234,9 @@ class DirectionalLight(Light):
 	def direction(self, value):
 		self._direction = list(value)
 		if self.node:
-			# Point light in direction by looking at target from origin
 			self.node.lookAt(value[0], value[1], value[2])
+		if self._debug_arrow and self.engine.debug_enabled:
+			self._create_debug_arrow()
 
 	@property
 	def position(self):
@@ -167,18 +247,26 @@ class DirectionalLight(Light):
 		self._position = list(value)
 		self._update_debug_icon()
 
+	def destroy(self):
+		if self._debug_arrow:
+			self._debug_arrow.removeNode()
+			self._debug_arrow = None
+		super().destroy()
+
+
 class PointLight(Light):
 	"""Point light - emits from a position in all directions"""
 
-	def __init__(self, engine, name='PointLight', color=(1, 1, 1, 1), position=(0, 0, 0)):
-		super().__init__(engine, name, color)
+	def __init__(self, engine, name='PointLight', color=(1, 1, 1, 1), position=(0, 0, 0), light_enabled=True):
+		super().__init__(engine, name, color, light_enabled)
 
 		self.light = PandaPointLight(name)
 		self.light.setColor(Vec4(*self._color))
 
 		self.node = base.render.attachNewNode(self.light)
 		self.position = position
-		base.render.setLight(self.node)
+		if self._enabled:
+			base.render.setLight(self.node)
 
 	@property
 	def position(self):
