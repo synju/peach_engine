@@ -206,6 +206,32 @@ class Player:
 		else:
 			self.is_grounded = False
 
+	def _can_lean(self, direction):
+		"""Check if we can lean in direction (-1 left, 1 right)"""
+		from panda3d.core import Point3
+
+		heading_rad = math.radians(self._heading)
+		right_x = math.cos(heading_rad)
+		right_y = math.sin(heading_rad)
+
+		# Full lean offset in that direction
+		offset_x = -right_x * direction * self.lean_distance
+		offset_y = -right_y * direction * self.lean_distance
+
+		start = Point3(
+			self._position[0],
+			self._position[1],
+			self._position[2] + self.eye_height
+		)
+		end = Point3(
+			self._position[0] + offset_x,
+			self._position[1] + offset_y,
+			self._position[2] + self.eye_height
+		)
+
+		result = self.physics.rayTestClosest(start, end)
+		return not result.hasHit()
+
 	@property
 	def position(self):
 		return self._position
@@ -253,8 +279,32 @@ class Player:
 		right_x = math.cos(heading_rad)
 		right_y = math.sin(heading_rad)
 
+		# Desired lean offset
 		lean_offset_x = -right_x * self._current_lean * self.lean_distance
 		lean_offset_y = -right_y * self._current_lean * self.lean_distance
+
+		# Check if lean position is blocked
+		if self._current_lean != 0:
+			from panda3d.core import Point3
+
+			start = Point3(
+				self._position[0],
+				self._position[1],
+				self._position[2] + self.eye_height
+			)
+			end = Point3(
+				self._position[0] + lean_offset_x,
+				self._position[1] + lean_offset_y,
+				self._position[2] + self.eye_height
+			)
+
+			result = self.physics.rayTestClosest(start, end)
+
+			if result.hasHit():
+				# Reduce lean to just before hit
+				fraction = result.getHitFraction() * 0.8  # Back off a bit
+				lean_offset_x *= fraction
+				lean_offset_y *= fraction
 
 		self.camera.position = [
 			self._position[0] + lean_offset_x,
@@ -317,9 +367,9 @@ class Player:
 			self.is_grounded = False
 
 		# Lean
-		if input_handler.is_key_pressed('q'):
+		if input_handler.is_key_pressed('q') and self._can_lean(1):
 			self._lean = 1
-		elif input_handler.is_key_pressed('e'):
+		elif input_handler.is_key_pressed('e') and self._can_lean(-1):
 			self._lean = -1
 		else:
 			self._lean = 0
