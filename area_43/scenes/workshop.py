@@ -1,12 +1,19 @@
+from panda3d.bullet import BulletWorld, BulletTriangleMesh, BulletTriangleMeshShape, BulletRigidBodyNode
+from panda3d.core import TransformState
+
+from area_43.player import Player
 from engine.skybox import Skybox
 from engine.scene import Scene
 from engine.mesh_object import MeshObject
-from pod_hotel.first_person_camera import FirstPersonCamera
+from area_43.first_person_camera import FirstPersonCamera
 from engine.light import AmbientLight, DirectionalLight
 
 class WorkshopScene(Scene):
 	def __init__(self, engine):
 		super().__init__(engine, 'workshop')
+
+		# Disable Grid
+		self.engine.scene_handler.grid.hide()
 
 		# Skybox
 		self.skybox = None
@@ -15,8 +22,18 @@ class WorkshopScene(Scene):
 		self.ambient_light = None
 		self.sun_light = None
 
+		# Physics
+		self.physics = None
+
+		# Player
+		self.player = None
+
 		# Camera
 		self.first_person_camera = None
+
+		# Floor
+		self.floor_col = None
+		self.floor = None
 
 		# Models
 		self.lockers = []
@@ -39,6 +56,10 @@ class WorkshopScene(Scene):
 		self.ambient_light = AmbientLight(self.engine, 'ambient', color=(0.3, 0.3, 0.3, 1), light_enabled=True)
 		self.sun_light = DirectionalLight(self.engine, 'sun', color=(1, 1, 1, 1), direction=(-1, 1, -1), position=(0, 0, 10), light_enabled=True)
 
+		# Player
+		self.player = Player(self.engine, self.engine.physics, position=(2.5, -1, 1), rotation=(0,90), near_clip=0.01)
+		self.engine.renderer.set_camera(self.player.camera)
+
 		# Camera
 		self.first_person_camera = FirstPersonCamera(
 			self.engine,
@@ -48,22 +69,39 @@ class WorkshopScene(Scene):
 			fast_speed=15,
 			near_clip=0.01
 		)
-		self.engine.renderer.set_camera(self.first_person_camera)
+		#self.engine.renderer.set_camera(self.first_person_camera)
+
+		# Floor
+		self.floor = MeshObject(self.engine, 'floor', 'entities/floor.gltf',position=[0, 0, 0], rotation=[0, 0, 0], scale=0.2,collision_enabled=True)
+		#self.engine.utils.add_mesh_collider(self.floor, self.engine.physics)
 
 		# Entities
-		locker_start = 5
+		locker_start = 2.5
 		locker_offset = 0.05
-		locker_width = 1.0+ locker_offset
-		self.lockers.append(MeshObject(self.engine, 'locker', 'entities/locker_000.gltf', position=[-5, locker_start, 0], rotation=[0, 0, 0], scale=0.2))
-		self.lockers.append(MeshObject(self.engine, 'locker', 'entities/locker_000.gltf', position=[-5, locker_start - (locker_width * 1), 0], rotation=[0, 0, 0], scale=0.2))
-		self.lockers.append(MeshObject(self.engine, 'locker', 'entities/locker_000.gltf', position=[-5, locker_start - (locker_width * 2), 0], rotation=[0, 0, 0], scale=0.2))
+		locker_width = 1.0 + locker_offset
+		for i in range(3):
+			self.lockers.append(MeshObject(
+				self.engine,
+				'locker',
+				'entities/locker_000.gltf',
+				position=[0, locker_start - (locker_width * i), 0],
+				rotation=[0, 0, 0],
+				scale=0.2,
+				collision_enabled=True
+			))
 
 	def handle_input(self, input_handler):
 		super().handle_input(input_handler)
 
+		# Reset player position
+		if input_handler.is_key_down('f5'):
+			self.player.reset()
+
+		# Player
+		self.player.handle_input(input_handler)
+
 		# Let camera handle input
-		if self.first_person_camera:
-			self.first_person_camera.handle_input(input_handler)
+		#self.first_person_camera.handle_input(input_handler)
 
 	def update(self, dt):
 		super().update(dt)
@@ -71,8 +109,14 @@ class WorkshopScene(Scene):
 		# Skybox
 		self.skybox.update(dt)
 
+		# Physics
+		self.engine.physics.doPhysics(dt)
+
+		# Player
+		self.player.update(dt)
+
 		# Update camera
-		self.first_person_camera.update(dt)
+		#self.first_person_camera.update(dt)
 
 		# Lighting
 		self.ambient_light.update()
@@ -87,6 +131,12 @@ class WorkshopScene(Scene):
 		# Lighting
 		self.ambient_light.destroy()
 		self.sun_light.destroy()
+
+		# Floor
+		self.floor.destroy()
+
+		# Player
+		self.player.destroy()
 
 		# Locker
 		for locker in self.lockers:

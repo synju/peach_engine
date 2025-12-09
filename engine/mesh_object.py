@@ -7,7 +7,7 @@ base: ShowBase
 class MeshObject:
 	"""A 3D mesh with position, rotation, scale, and visibility"""
 
-	def __init__(self, engine, name='MeshObject', model_path=None, position=None, rotation=None, scale=None):
+	def __init__(self, engine, name='MeshObject', model_path=None, position=None, rotation=None, scale=None, collision_enabled=False):
 		self.engine = engine
 		self.name = name
 		self.model = None
@@ -36,6 +36,9 @@ class MeshObject:
 			self.rotation = rotation
 		if scale:
 			self.scale = scale
+
+		if collision_enabled:
+			self.engine.utils.add_mesh_collider(self,self.engine.physics)
 
 	# Position
 	@property

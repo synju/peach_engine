@@ -1,4 +1,5 @@
 from direct.showbase.ShowBase import ShowBase
+from panda3d.bullet import BulletWorld
 from panda3d.core import loadPrcFileData
 import sys
 
@@ -25,12 +26,14 @@ class PeachEngine(ShowBase):
 		from .renderer import Renderer
 		from .sound_player import SoundPlayer
 		from .scene_handler import SceneHandler
+		from .utils import Utils
 
 		# Core components
 		self.input_handler = InputHandler()
 		self.renderer = Renderer(width, height, title, fullscreen)
 		self.sound_player = SoundPlayer()
 		self.scene_handler = SceneHandler(self)
+		self.utils = Utils(self)
 
 		# Give scene_handler reference to renderer
 		self.scene_handler.renderer = self.renderer
@@ -43,6 +46,9 @@ class PeachEngine(ShowBase):
 
 		# Apply initial debug visibility
 		self.scene_handler._update_debug_visibility()
+
+		self.physics = BulletWorld()
+		self.physics.setGravity(0, 0, -9.81)
 
 		# Welcome message
 		print(f"Peach Engine initialized - {width}x{height}")

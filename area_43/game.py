@@ -1,5 +1,5 @@
 from engine.peach_engine import PeachEngine
-from pod_hotel.scenes.workshop import WorkshopScene
+from area_43.scenes.workshop import WorkshopScene
 
 if __name__ == '__main__':
     # Create engine
