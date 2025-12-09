@@ -25,12 +25,11 @@ class SceneHandler:
 
 	def _setup_debug(self):
 		"""Setup debug grid and UI"""
-		from .mesh_utils import create_grid
 		from .debug_ui import DebugUI
 		from . import colors
 
 		# Create debug grid
-		self.grid = create_grid(self.grid_size, colors.gray)
+		self.grid = self.engine.utils.create_grid(self.grid_size, colors.gray)
 		self.grid.reparentTo(base.render)
 
 		# Create debug UI

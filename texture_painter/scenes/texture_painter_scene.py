@@ -240,11 +240,10 @@ class TexturePainterScene(Scene):
 
 	def _setup_grid(self):
 		"""Create the ground grid and origin marker"""
-		from engine.mesh_utils import create_grid, create_line
 		from engine import colors
 
 		# Grid
-		self.grid = create_grid(30, colors.gray)
+		self.grid = self.engine.create_grid(30, colors.gray)
 		self.grid.reparentTo(builtins.base.render)
 
 		# Origin axes (XYZ gizmo at center)
@@ -252,15 +251,15 @@ class TexturePainterScene(Scene):
 		axis_length = 1.0
 
 		# X axis - red
-		x_axis = create_line((0, 0, 0), (axis_length, 0, 0), colors.red)
+		x_axis = self.engine.utils.create_line((0, 0, 0), (axis_length, 0, 0), colors.red)
 		x_axis.reparentTo(self.origin_gizmo)
 
 		# Y axis - green
-		y_axis = create_line((0, 0, 0), (0, axis_length, 0), colors.green)
+		y_axis = self.engine.utils.create_line((0, 0, 0), (0, axis_length, 0), colors.green)
 		y_axis.reparentTo(self.origin_gizmo)
 
 		# Z axis - blue
-		z_axis = create_line((0, 0, 0), (0, 0, axis_length), colors.blue)
+		z_axis = self.engine.utils.create_line((0, 0, 0), (0, 0, axis_length), colors.blue)
 		z_axis.reparentTo(self.origin_gizmo)
 
 	def _setup_camera(self):

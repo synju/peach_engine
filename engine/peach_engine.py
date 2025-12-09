@@ -25,15 +25,15 @@ class PeachEngine(ShowBase):
 		from .input_handler import InputHandler
 		from .renderer import Renderer
 		from .sound_player import SoundPlayer
-		from .scene_handler import SceneHandler
 		from .utils import Utils
+		from .scene_handler import SceneHandler
 
 		# Core components
 		self.input_handler = InputHandler()
 		self.renderer = Renderer(width, height, title, fullscreen)
 		self.sound_player = SoundPlayer()
-		self.scene_handler = SceneHandler(self)
 		self.utils = Utils(self)
+		self.scene_handler = SceneHandler(self)
 
 		# Give scene_handler reference to renderer
 		self.scene_handler.renderer = self.renderer
