@@ -243,7 +243,7 @@ class TexturePainterScene(Scene):
 		from engine import colors
 
 		# Grid
-		self.grid = self.engine.create_grid(30, colors.gray)
+		self.grid = self.engine.utils.create_grid(30, colors.gray)
 		self.grid.reparentTo(builtins.base.render)
 
 		# Origin axes (XYZ gizmo at center)
