@@ -69,17 +69,17 @@ class WorkshopScene(Scene):
 		self.cube.set_interact(self.some_function)
 
 		# Q3 style fog volume
-		# self.fog = FogVolume(
-		# 	self.engine,
-		# 	position=(4.40, -3, 2),
-		# 	size=(10, 8, 4),
-		# 	color=(1, 1, 1),
-		# 	density=0.1,
-		# 	debug_mode=True
-		# )
+		self.fog = FogVolume(
+			self.engine,
+			position=(4.40, -3, 2),
+			size=(10, 8, 4),
+			color=(1, 1, 1),
+			density=0.1,
+			debug_mode=True
+		)
 
 		# Distance fog (Silent Hill)
-		self.fog = DistanceFog(self.engine, color=(0.5, 0.5, 0.5), density=0.15)
+		#self.fog = DistanceFog(self.engine, color=(0.5, 0.5, 0.5), density=0.15)
 
 		# Entities
 		self.level = MeshObject(
