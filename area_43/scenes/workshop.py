@@ -1,5 +1,6 @@
 from area_43.entities.entity_objects.interactive_cube import InteractiveCube
 from area_43.player import Player
+from engine.fog_linear import LinearDistanceFog
 from engine.light import AmbientLight, DirectionalLight
 from engine.mesh_object import MeshObject
 from engine.scene import Scene
@@ -35,6 +36,9 @@ class WorkshopScene(Scene):
 
 		# Fog
 		self.fog = None
+		self.fog_mode = None
+		self.fog_distance = None
+		self.fog_linear = None
 
 		# Level
 		self.level = None
@@ -61,7 +65,7 @@ class WorkshopScene(Scene):
 		#self.sun_light = DirectionalLight(self.engine, 'sun', color=(1, 1, 1, 1), direction=(-1, 1, -1), position=(0, 0, 10), light_enabled=True)
 
 		# Player
-		self.player = Player(self.engine, self.engine.physics, position=(2.5, -1, 1), rotation=(0, 90), near_clip=0.01)
+		self.player = Player(self.engine, self.engine.physics, position=(9.25, 0.56, 1.75), rotation=(-3, 124), near_clip=0.01)
 		self.engine.renderer.set_camera(self.player.camera)
 
 		# Interactive Cube
@@ -69,17 +73,15 @@ class WorkshopScene(Scene):
 		self.cube.set_interact(self.some_function)
 
 		# Fog Volume (Quake 3 Arena)
-		self.fog = FogVolume(
-			self.engine,
-			position=(4.4, -2.9, 1.9),
-			size=(9.5, 7.5, 3.6),
-			color=(1, 1, 1),
-			density=0.1,
-			debug_mode=False
-		)
+		#self.fog = FogVolume(self.engine, position=(4.4, -2.9, 1.9), size=(9.5, 7.5, 3.6), color=(1, 1, 1), density=0.1, debug_mode=False)
 
 		# Fog Distance (Silent Hill)
-		#self.fog = DistanceFog(self.engine, color=(0.5, 0.5, 0.5), density=0.15)
+		#self.fog = DistanceFog(self.engine, color=(1.0, 1.0, 1.0), density=0.1)
+
+		# Ranged Distance Fog
+		self.fog = LinearDistanceFog(self.engine, color=(1.0, 1.0, 1.0), start=0, end=10, density=2.0)
+		#self.fog = LinearDistanceFog(self.engine, color=(0, 0, 0), start=0, end=5, density=1.25)
+		#self.fog = LinearDistanceFog(self.engine, color=(1.0, 0, 0), start=1, end=15, density=2.0)
 
 		# Entities
 		self.level = MeshObject(
