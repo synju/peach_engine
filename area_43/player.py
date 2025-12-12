@@ -27,6 +27,14 @@ class Player:
 		self.engine = engine
 		self.physics = physics_world
 
+		# Debug
+		self.debug_mode = False
+		self._debug_ray_line = None
+		self._debug_ray_ball = None
+
+		# Interaction Distance
+		self.interact_distance = 1.1
+
 		# Node for player
 		self.node = NodePath('player')
 		self.node.reparentTo(base.render)
@@ -186,30 +194,50 @@ class Player:
 		self.node.setPos(*self._position)
 
 	def _check_ground(self):
-		"""Raycast down to check if grounded"""
-		start = Point3(self._position[0], self._position[1], self._position[2] + 0.5)
-		end = Point3(self._position[0], self._position[1], self._position[2] - 0.1)
+		"""Raycast down to check if grounded - multiple rays for edge detection"""
+		# Check center + 8 points around the capsule edge
+		offsets = [(0, 0)]  # center
+		for i in range(8):
+			angle = math.radians(i * 45)
+			offsets.append((
+				math.cos(angle) * self.radius * 0.8,
+				math.sin(angle) * self.radius * 0.8
+			))
 
-		result = self.physics.rayTestClosest(start, end)
+		best_ground_z = None
 
-		if result.hasHit():
-			normal = result.getHitNormal()
-			if normal.z >= self.max_slope:
-				self.is_grounded = True
-				ground_z = result.getHitPos().z
-				if self._position[2] < ground_z:
-					self._position[2] = ground_z
-					self.velocity.z = 0
-					self.node.setPos(*self._position)
-			else:
-				self.is_grounded = False
+		for ox, oy in offsets:
+			start = Point3(
+				self._position[0] + ox,
+				self._position[1] + oy,
+				self._position[2] + 0.5
+			)
+			end = Point3(
+				self._position[0] + ox,
+				self._position[1] + oy,
+				self._position[2] - 0.1
+			)
+
+			result = self.physics.rayTestClosest(start, end)
+
+			if result.hasHit():
+				normal = result.getHitNormal()
+				if normal.z >= self.max_slope:
+					ground_z = result.getHitPos().z
+					if best_ground_z is None or ground_z > best_ground_z:
+						best_ground_z = ground_z
+
+		if best_ground_z is not None:
+			self.is_grounded = True
+			if self._position[2] < best_ground_z:
+				self._position[2] = best_ground_z
+				self.velocity.z = 0
+				self.node.setPos(*self._position)
 		else:
 			self.is_grounded = False
 
 	def _can_lean(self, direction):
 		"""Check if we can lean in direction (-1 left, 1 right)"""
-		from panda3d.core import Point3
-
 		heading_rad = math.radians(self._heading)
 		right_x = math.cos(heading_rad)
 		right_y = math.sin(heading_rad)
@@ -231,6 +259,114 @@ class Player:
 
 		result = self.physics.rayTestClosest(start, end)
 		return not result.hasHit()
+
+	def _update_debug_ray(self):
+		"""Draw debug raycast visualization"""
+		from panda3d.core import LineSegs
+
+		# Remove old debug visuals
+		if self._debug_ray_line:
+			self._debug_ray_line.removeNode()
+			self._debug_ray_line = None
+		if self._debug_ray_ball:
+			self._debug_ray_ball.removeNode()
+			self._debug_ray_ball = None
+
+		if not self.debug_mode:
+			return
+
+		distance = self.interact_distance
+		heading_rad = math.radians(self._heading)
+		pitch_rad = math.radians(self._pitch)
+
+		dx = -math.sin(heading_rad) * math.cos(pitch_rad)
+		dy = math.cos(heading_rad) * math.cos(pitch_rad)
+		dz = math.sin(pitch_rad)
+
+		start = Point3(
+			self.camera.position[0],
+			self.camera.position[1],
+			self.camera.position[2]
+		)
+		end = Point3(
+			start.x + dx * distance,
+			start.y + dy * distance,
+			start.z + dz * distance
+		)
+
+		# Raycast to find hit point
+		result = self.physics.rayTestClosest(start, end)
+
+		ball_color = (1, 0, 0, 1)  # Red by default
+
+		if result.hasHit():
+			hit_pos = result.getHitPos()
+			hit_node = result.getNode()
+
+			# Check if it's an interactable object
+			scene = self.engine.scene_handler.current_scene
+			if hasattr(scene, 'interactive_objects'):
+				for obj in scene.interactive_objects:
+					if obj.collision_body == hit_node:
+						ball_color = (0, 1, 0, 1)  # Green for interactable
+						break
+		else:
+			hit_pos = end
+
+		# Draw line
+		lines = LineSegs()
+		lines.setThickness(3)
+		lines.setColor(1, 0, 0, 1)
+		lines.moveTo(start)
+		lines.drawTo(hit_pos)
+		self._debug_ray_line = base.render.attachNewNode(lines.create())
+
+		# Draw sphere at hit point
+		self._debug_ray_ball = base.loader.loadModel("models/misc/sphere")
+		self._debug_ray_ball.setScale(0.010)
+		self._debug_ray_ball.setPos(hit_pos)
+		self._debug_ray_ball.setColor(*ball_color)
+		self._debug_ray_ball.setLightOff()
+		self._debug_ray_ball.reparentTo(base.render)
+
+	def get_look_hit(self, distance=3.0):
+		"""Raycast from eye in look direction, return hit node or None"""
+		heading_rad = math.radians(self._heading)
+		pitch_rad = math.radians(self._pitch)
+
+		# Direction from pitch/heading
+		dx = -math.sin(heading_rad) * math.cos(pitch_rad)
+		dy = math.cos(heading_rad) * math.cos(pitch_rad)
+		dz = math.sin(pitch_rad)  # Fixed sign
+
+		start = Point3(
+			self.camera.position[0],
+			self.camera.position[1],
+			self.camera.position[2]
+		)
+		end = Point3(
+			start.x + dx * distance,
+			start.y + dy * distance,
+			start.z + dz * distance
+		)
+
+		result = self.physics.rayTestClosest(start, end)
+
+		if result.hasHit():
+			return result.getNode()
+		return None
+
+	def try_interact(self):
+		"""Raycast and interact with object if found"""
+		hit_node = self.get_look_hit(distance=self.interact_distance)
+		if hit_node:
+			scene = self.engine.scene_handler.current_scene
+			if hasattr(scene, 'interactive_objects'):
+				for obj in scene.interactive_objects:
+					if obj.collision_body == hit_node:
+						obj.interact()
+						return True
+		return False
 
 	@property
 	def position(self):
@@ -285,8 +421,6 @@ class Player:
 
 		# Check if lean position is blocked
 		if self._current_lean != 0:
-			from panda3d.core import Point3
-
 			start = Point3(
 				self._position[0],
 				self._position[1],
@@ -374,6 +508,9 @@ class Player:
 		else:
 			self._lean = 0
 
+		if input_handler.is_key_down('f'):
+			self.try_interact()
+
 	def update(self, dt):
 		if not self.looking:
 			self._update_camera()
@@ -443,12 +580,19 @@ class Player:
 		# Smooth crouch transition
 		target_height = self.crouch_height if self.is_crouching else self.height
 		if self._current_height != target_height:
+			old_height = self._current_height
 			diff = target_height - self._current_height
 			self._current_height += diff * self.crouch_speed_transition * dt
 
 			# Snap if close enough
 			if abs(self._current_height - target_height) < 0.01:
 				self._current_height = target_height
+
+			# In air: keep head at same position (feet come up)
+			if not self.is_grounded:
+				height_change = old_height - self._current_height
+				self._position[2] += height_change
+				self.node.setPos(*self._position)
 
 		# Move with collision
 		self._slide_move(dt)
@@ -464,10 +608,17 @@ class Player:
 			if abs(self._current_lean - self._lean) < 0.01:
 				self._current_lean = self._lean
 
+		# Debug visualization
+		self._update_debug_ray()
+
 		# Update Camera
 		self._update_camera()
 
 	def destroy(self):
+		if self._debug_ray_line:
+			self._debug_ray_line.removeNode()
+		if self._debug_ray_ball:
+			self._debug_ray_ball.removeNode()
 		if self.body:
 			self.physics.removeRigidBody(self.body)
 		if self.node:

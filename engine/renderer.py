@@ -75,6 +75,10 @@ class Renderer:
 		base.camLens.setFov(90)
 		base.disableMouse()
 
+		# Enable PBR rendering for proper HDR lighting
+		import simplepbr
+		simplepbr.init()
+
 	# Window properties
 	@property
 	def width(self):
