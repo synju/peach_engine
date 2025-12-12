@@ -4,6 +4,8 @@ from engine.light import AmbientLight, DirectionalLight
 from engine.mesh_object import MeshObject
 from engine.scene import Scene
 from engine.skybox import Skybox
+from engine.fog_distance import DistanceFog
+from engine.fog_volume import FogVolume
 
 class WorkshopScene(Scene):
 	def __init__(self, engine):
@@ -30,6 +32,9 @@ class WorkshopScene(Scene):
 
 		# Interactive Cube
 		self.cube = None
+
+		# Fog
+		self.fog = None
 
 		# Level
 		self.level = None
@@ -60,8 +65,21 @@ class WorkshopScene(Scene):
 		self.engine.renderer.set_camera(self.player.camera)
 
 		# Interactive Cube
-		self.cube = InteractiveCube(self.engine, position=[1, -0.75, 0.5], rotation=[0, 0, 0], scale=0.2, collision_enabled=True)
+		self.cube = InteractiveCube(self.engine, position=[1, -0.75, 0.5], rotation=[0, 0, 0], scale=0.2, collision_enabled=True,debug_mode=False)
 		self.cube.set_interact(self.some_function)
+
+		# Q3 style fog volume
+		# self.fog = FogVolume(
+		# 	self.engine,
+		# 	position=(4.40, -3, 2),
+		# 	size=(10, 8, 4),
+		# 	color=(1, 1, 1),
+		# 	density=0.1,
+		# 	debug_mode=True
+		# )
+
+		# Distance fog (Silent Hill)
+		self.fog = DistanceFog(self.engine, color=(0.5, 0.5, 0.5), density=0.15)
 
 		# Entities
 		self.level = MeshObject(
@@ -103,6 +121,9 @@ class WorkshopScene(Scene):
 		for obj in self.interactive_objects:
 			obj.update(dt)
 
+		# Fog
+		self.fog.update()
+
 		# Lighting
 		self.ambient_light.update()
 		#self.sun_light.update()
@@ -119,6 +140,9 @@ class WorkshopScene(Scene):
 
 		# Interactive Cube
 		self.cube.destroy()
+
+		# Fog
+		self.fog.destroy()
 
 		# Player
 		self.player.destroy()

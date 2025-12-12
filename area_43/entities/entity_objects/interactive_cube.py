@@ -5,8 +5,8 @@ from engine.mesh_object import MeshObject
 class InteractiveCube(GameObject):
 	"""Interactive cube that can be picked up or used"""
 
-	def __init__(self, engine, position=(0, 0, 0), rotation=(0, 0, 0), scale=0.2, collision_enabled=True):
-		super().__init__(engine, 'InteractiveCube', position, rotation, scale)
+	def __init__(self, engine, position=(0, 0, 0), rotation=(0, 0, 0), scale=0.2, collision_enabled=True, debug_mode=False):
+		super().__init__(engine, 'InteractiveCube', position, rotation, scale, debug_mode=debug_mode)
 
 		# Mesh with transforms
 		mesh = MeshObject(

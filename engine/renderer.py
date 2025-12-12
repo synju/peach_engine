@@ -5,6 +5,7 @@ from panda3d.core import (
 	Geom, GeomLines, GeomTriangles, GeomNode,
 	Vec4, LColor
 )
+import simplepbr
 import sys
 
 # Global created by ShowBase
@@ -76,8 +77,9 @@ class Renderer:
 		base.disableMouse()
 
 		# Enable PBR rendering for proper HDR lighting
-		import simplepbr
-		simplepbr.init()
+		self.pipeline = simplepbr.init(
+			enable_fog=True
+		)
 
 	# Window properties
 	@property

@@ -7,12 +7,12 @@ base: ShowBase
 class GameObject:
 	"""Base game object - container for components - includes interaction support"""
 
-	def __init__(self, engine, name='GameObject', position=(0, 0, 0), rotation=(0, 0, 0), scale=1):
+	def __init__(self, engine, name='GameObject', position=(0, 0, 0), rotation=(0, 0, 0), scale=1, debug_mode=False):
 		self.engine = engine
 		self.name = name
 
 		# Debug
-		self.debug_mode = True
+		self.debug_mode = debug_mode
 		self._debug_collision_visual = None
 
 		# Root node
