@@ -1,5 +1,7 @@
 # Core engine
 panda3d
+panda3d-simplepbr
+panda3d-gltf
 
 # Math/vectors
 numpy

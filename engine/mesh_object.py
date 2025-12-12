@@ -38,7 +38,7 @@ class MeshObject:
 			self.scale = scale
 
 		if collision_enabled:
-			self.engine.utils.add_mesh_collider(self,self.engine.physics)
+			self.engine.utils.add_mesh_collider(self, self.engine.physics)
 
 	# Position
 	@property
@@ -101,10 +101,25 @@ class MeshObject:
 			self.model = base.loader.loadModel(path)
 			if self.model:
 				self.model.reparentTo(self.node)
+				self._clamp_textures()
 			return True
 		except Exception as e:
 			print(f"Could not load model {path}: {e}")
 			return False
+
+	def _clamp_textures(self):
+		"""Prevent texture edge bleeding into transparent areas"""
+		from panda3d.core import SamplerState, LColor
+
+		if not self.model:
+			return
+
+		for tex_stage in self.model.findAllTextureStages():
+			tex = self.model.findTexture(tex_stage)
+			if tex:
+				tex.setWrapU(SamplerState.WM_border_color)
+				tex.setWrapV(SamplerState.WM_border_color)
+				tex.setBorderColor(LColor(0, 0, 0, 1))
 
 	def load_texture(self, path):
 		"""Load and apply a texture"""
