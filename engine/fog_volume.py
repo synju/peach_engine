@@ -46,58 +46,56 @@ in vec3 world_pos;
 out vec4 frag_color;
 
 vec2 intersect_box(vec3 ray_origin, vec3 ray_dir) {
-	vec3 t1 = (box_min - ray_origin) / ray_dir;
-	vec3 t2 = (box_max - ray_origin) / ray_dir;
+    vec3 t1 = (box_min - ray_origin) / ray_dir;
+    vec3 t2 = (box_max - ray_origin) / ray_dir;
 
-	vec3 t_min = min(t1, t2);
-	vec3 t_max = max(t1, t2);
+    vec3 t_min = min(t1, t2);
+    vec3 t_max = max(t1, t2);
 
-	float enter = max(max(t_min.x, t_min.y), t_min.z);
-	float exit = min(min(t_max.x, t_max.y), t_max.z);
+    float enter = max(max(t_min.x, t_min.y), t_min.z);
+    float exit = min(min(t_max.x, t_max.y), t_max.z);
 
-	return vec2(enter, exit);
+    return vec2(enter, exit);
 }
 
 bool point_in_box(vec3 p) {
-	return all(greaterThan(p, box_min - 0.01)) && all(lessThan(p, box_max + 0.01));
+    return all(greaterThan(p, box_min - 0.01)) && all(lessThan(p, box_max + 0.01));
 }
 
 void main() {
-	vec3 ray_dir = normalize(world_pos - camera_pos);
-	vec2 t = intersect_box(camera_pos, ray_dir);
+    vec3 ray_dir = normalize(world_pos - camera_pos);
+    vec2 t = intersect_box(camera_pos, ray_dir);
 
-	if (t.x > t.y || t.y < 0.0) {
-		discard;
-	}
+    if (t.x > t.y || t.y < 0.0) {
+        discard;
+    }
 
-	// Get scene depth
-	vec2 screen_uv = gl_FragCoord.xy / screen_size;
-	float depth_raw = texture(depth_tex, screen_uv).r;
+    // Get scene depth
+    vec2 screen_uv = gl_FragCoord.xy / screen_size;
+    float depth_raw = texture(depth_tex, screen_uv).r;
 
-	// Linearize depth to get view-space Z
-	float scene_z = near_plane * far_plane / (far_plane - depth_raw * (far_plane - near_plane));
+    // Linearize depth
+    float scene_z = near_plane * far_plane / (far_plane - depth_raw * (far_plane - near_plane));
 
-	// Convert view-space Z to world distance along ray
-	float cos_angle = abs(dot(ray_dir, camera_forward));
-	float scene_dist = scene_z / max(cos_angle, 0.0001);
+    // Convert to world distance
+    float cos_angle = abs(dot(ray_dir, camera_forward));
+    float scene_dist = scene_z / max(cos_angle, 0.0001);
 
-	// Entry/exit distances along ray
-	bool inside = point_in_box(camera_pos);
-	float entry_dist = inside ? 0.0 : max(t.x, 0.0);
-	float exit_dist = t.y;
+    bool inside = point_in_box(camera_pos);
+    float entry_dist = inside ? 0.0 : max(t.x, 0.0);
+    float exit_dist = t.y;
 
-	// Clamp to scene geometry
-	exit_dist = min(exit_dist, scene_dist);
+    // Clamp fog to scene geometry
+    exit_dist = min(exit_dist, scene_dist);
 
-	// No fog if scene is in front of fog entry
-	if (exit_dist <= entry_dist) {
-		discard;
-	}
+    if (exit_dist <= entry_dist) {
+        discard;
+    }
 
-	float fog_dist = exit_dist - entry_dist;
-	float fog_amount = 1.0 - exp(-fog_density * fog_dist);
+    float fog_dist = exit_dist - entry_dist;
+    float fog_amount = 1.0 - exp(-fog_density * fog_dist);
 
-	frag_color = vec4(fog_color.rgb, fog_amount);
+    frag_color = vec4(fog_color.rgb, fog_amount);
 }
 """
 
@@ -129,13 +127,19 @@ class FogVolume:
 			self._create_debug_wireframe()
 
 	def _setup_depth_texture(self):
-		"""Setup access to the depth buffer"""
-		self._depth_tex = Texture("depth")
-		base.win.addRenderTexture(
-			self._depth_tex,
-			GraphicsOutput.RTMBindOrCopy,
-			GraphicsOutput.RTPDepth
-		)
+		"""Get depth texture from renderer (simplepbr's buffer)"""
+		if hasattr(self.engine, 'renderer') and hasattr(self.engine.renderer, 'depth_tex'):
+			self._depth_tex = self.engine.renderer.depth_tex
+			print("Using simplepbr depth texture")
+		else:
+			# Fallback
+			self._depth_tex = Texture("depth")
+			base.win.addRenderTexture(
+				self._depth_tex,
+				GraphicsOutput.RTMBindOrCopy,
+				GraphicsOutput.RTPDepth
+			)
+			print("Using fallback depth texture")
 
 	def _create_volume(self):
 		"""Create the fog volume geometry with shader"""
@@ -360,12 +364,15 @@ class FogVolume:
 			self._create_debug_wireframe()
 
 	def update(self):
-		if self._fog_node:
-			cam_pos = base.camera.getPos(base.render)
-			cam_fwd = base.camera.getQuat(base.render).getForward()
-			self._fog_node.setShaderInput("camera_pos", cam_pos)
-			self._fog_node.setShaderInput("camera_forward", cam_fwd)
-			self._fog_node.setShaderInput("screen_size", Vec2(base.win.getXSize(), base.win.getYSize()))
+		if not self._fog_node:
+			return
+
+		cam_pos = base.camera.getPos(base.render)
+		cam_fwd = base.camera.getQuat(base.render).getForward()
+
+		self._fog_node.setShaderInput("camera_pos", cam_pos)
+		self._fog_node.setShaderInput("camera_forward", cam_fwd)
+		self._fog_node.setShaderInput("screen_size", Vec2(base.win.getXSize(), base.win.getYSize()))
 
 		if self.debug_mode:
 			if not self._debug_node:
