@@ -7,6 +7,8 @@ from panda3d.core import (
 	Texture, PNMImage
 )
 
+from engine.console_bg import ConsoleBackground
+
 base: ShowBase
 
 
@@ -22,7 +24,7 @@ class Console:
 		self._command_history = []
 		self._history_index = -1
 		self._output_lines = []
-		self._max_output_lines = 20
+		self._max_output_lines = 34
 
 		# Console dimensions (covers top half of screen)
 		self._height = 0.5  # Half screen height in aspect2d coords
@@ -55,8 +57,11 @@ class Console:
 		self._console_root = base.aspect2d.attachNewNode("console_root")
 		self._console_root.setPos(0, 0, 1 - self._height)
 
-		# Background with scrolling texture
-		self._create_background()
+		# Background
+		self._background = ConsoleBackground(self._console_root, self._height)
+
+		# Start update task
+		self._scroll_task = base.taskMgr.add(self._update_background, "console_update")
 
 		# Red line at bottom
 		self._create_red_line()
@@ -67,72 +72,13 @@ class Console:
 		# Input field
 		self._create_input_field()
 
-	def _create_background(self):
-		"""Create scrolling background"""
-		cm = CardMaker('console_bg')
-		aspect = base.getAspectRatio()
-		cm.setFrame(-aspect, aspect, -self._height * 2, 0)
-
-		self._background = self._console_root.attachNewNode(cm.generate())
-		self._background.setPos(0, 0, 0)
-
-		# Create procedural tech texture
-		self._bg_texture = self._create_tech_texture()
-		self._background.setTexture(self._bg_texture)
-
-		# Setup texture scrolling
-		self._background.setTexScale(TextureStage.getDefault(), 2, 2)
-		self._background.setTransparency(TransparencyAttrib.MAlpha)
-		self._background.setColor(0.1, 0.0, 0.0, 0.85)
-
-		# Start scroll task
-		self._scroll_offset = 0
-		self._scroll_task = base.taskMgr.add(self._scroll_background, "console_scroll")
-
-	def _create_tech_texture(self):
-		"""Create a procedural tech/circuit pattern texture"""
-		size = 256
-		img = PNMImage(size, size)
-		img.fill(0.15, 0.0, 0.0)  # Dark red base
-
-		# Draw circuit-like pattern
-		import random
-		random.seed(42)  # Consistent pattern
-
-		# Horizontal lines
-		for i in range(0, size, 16):
-			for x in range(size):
-				if random.random() > 0.3:
-					img.setXel(x, i, 0.3, 0.05, 0.05)
-
-		# Vertical lines
-		for i in range(0, size, 16):
-			for y in range(size):
-				if random.random() > 0.3:
-					img.setXel(i, y, 0.3, 0.05, 0.05)
-
-		# Random bright dots (nodes)
-		for _ in range(100):
-			x = random.randint(0, size - 1)
-			y = random.randint(0, size - 1)
-			img.setXel(x, y, 0.6, 0.1, 0.1)
-
-		tex = Texture("console_bg_tex")
-		tex.load(img)
-		tex.setWrapU(Texture.WMRepeat)
-		tex.setWrapV(Texture.WMRepeat)
-
-		return tex
-
-	def _scroll_background(self, task):
-		"""Scroll the background texture"""
+	def _update_background(self, task):
+		"""Update background animation"""
 		if not self._is_open:
 			return task.cont
 
-		self._scroll_offset += 0.01
-		self._background.setTexOffset(TextureStage.getDefault(),
-									   self._scroll_offset * 0.5,
-									   self._scroll_offset)
+		dt = globalClock.getDt()
+		self._background.update(dt)
 		return task.cont
 
 	def _create_red_line(self):
@@ -148,14 +94,14 @@ class Console:
 	def _create_output_area(self):
 		"""Create scrollable output text area"""
 		self._output_nodes = []
-		line_height = 0.045
-		start_y = -0.05
+		line_height = 0.028
+		start_y = -0.03
 
 		for i in range(self._max_output_lines):
 			text = OnscreenText(
 				text="",
-				pos=(-base.getAspectRatio() + 0.05, start_y - (i * line_height)),
-				scale=0.035,
+				pos=(-base.getAspectRatio() + 0.03, start_y - (i * line_height)),
+				scale=0.025,
 				fg=(0.8, 0.8, 0.8, 1),
 				align=TextNode.ALeft,
 				parent=self._console_root,
@@ -170,19 +116,19 @@ class Console:
 		# Input prompt
 		self._prompt = OnscreenText(
 			text="]",
-			pos=(-aspect + 0.03, -self._height * 2 + 0.03),
-			scale=0.04,
+			pos=(-aspect + 0.02, -self._height * 2 + 0.02),
+			scale=0.025,
 			fg=(1, 1, 1, 1),
 			align=TextNode.ALeft,
 			parent=self._console_root
 		)
 
-		# Input field (using DirectEntry)
+		# Input field
 		self._input_field = DirectEntry(
 			parent=self._console_root,
-			scale=0.04,
-			pos=(-aspect + 0.08, 0, -self._height * 2 + 0.025),
-			width=40,
+			scale=0.025,
+			pos=(-aspect + 0.05, 0, -self._height * 2 + 0.018),
+			width=60,
 			numLines=1,
 			focus=0,
 			frameColor=(0, 0, 0, 0),
@@ -390,6 +336,9 @@ class Console:
 			base.taskMgr.remove(self._scroll_task)
 
 		base.ignore(self.toggle_key)
+
+		if self._background:
+			self._background.destroy()
 
 		if self._console_root:
 			self._console_root.removeNode()
