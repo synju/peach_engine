@@ -3,13 +3,11 @@ from panda3d.core import (
 	NodePath, Vec4, Vec3, Vec2,
 	GeomVertexFormat, GeomVertexData, GeomVertexWriter,
 	Geom, GeomTriangles, GeomLines, GeomNode,
-	Shader, Texture, TransparencyAttrib,
-	CullFaceAttrib, GraphicsOutput
+	Shader, TransparencyAttrib, CullFaceAttrib
 )
 
 base: ShowBase
 
-# Vertex shader for fog volume
 FOG_VOLUME_VERT = """
 #version 330
 
@@ -26,7 +24,6 @@ void main() {
 }
 """
 
-# Fragment shader for fog volume - calculates depth through volume
 FOG_VOLUME_FRAG = """
 #version 330
 
@@ -46,56 +43,52 @@ in vec3 world_pos;
 out vec4 frag_color;
 
 vec2 intersect_box(vec3 ray_origin, vec3 ray_dir) {
-    vec3 t1 = (box_min - ray_origin) / ray_dir;
-    vec3 t2 = (box_max - ray_origin) / ray_dir;
+	vec3 t1 = (box_min - ray_origin) / ray_dir;
+	vec3 t2 = (box_max - ray_origin) / ray_dir;
 
-    vec3 t_min = min(t1, t2);
-    vec3 t_max = max(t1, t2);
+	vec3 t_min = min(t1, t2);
+	vec3 t_max = max(t1, t2);
 
-    float enter = max(max(t_min.x, t_min.y), t_min.z);
-    float exit = min(min(t_max.x, t_max.y), t_max.z);
+	float enter = max(max(t_min.x, t_min.y), t_min.z);
+	float exit = min(min(t_max.x, t_max.y), t_max.z);
 
-    return vec2(enter, exit);
+	return vec2(enter, exit);
 }
 
 bool point_in_box(vec3 p) {
-    return all(greaterThan(p, box_min - 0.01)) && all(lessThan(p, box_max + 0.01));
+	return all(greaterThan(p, box_min - 0.01)) && all(lessThan(p, box_max + 0.01));
 }
 
 void main() {
-    vec3 ray_dir = normalize(world_pos - camera_pos);
-    vec2 t = intersect_box(camera_pos, ray_dir);
+	vec3 ray_dir = normalize(world_pos - camera_pos);
+	vec2 t = intersect_box(camera_pos, ray_dir);
 
-    if (t.x > t.y || t.y < 0.0) {
-        discard;
-    }
+	if (t.x > t.y || t.y < 0.0) {
+		discard;
+	}
 
-    // Get scene depth
-    vec2 screen_uv = gl_FragCoord.xy / screen_size;
-    float depth_raw = texture(depth_tex, screen_uv).r;
+	vec2 screen_uv = gl_FragCoord.xy / screen_size;
+	float depth_raw = texture(depth_tex, screen_uv).r;
 
-    // Linearize depth
-    float scene_z = near_plane * far_plane / (far_plane - depth_raw * (far_plane - near_plane));
+	float scene_z = near_plane * far_plane / (far_plane - depth_raw * (far_plane - near_plane));
 
-    // Convert to world distance
-    float cos_angle = abs(dot(ray_dir, camera_forward));
-    float scene_dist = scene_z / max(cos_angle, 0.0001);
+	float cos_angle = abs(dot(ray_dir, camera_forward));
+	float scene_dist = scene_z / max(cos_angle, 0.0001);
 
-    bool inside = point_in_box(camera_pos);
-    float entry_dist = inside ? 0.0 : max(t.x, 0.0);
-    float exit_dist = t.y;
+	bool inside = point_in_box(camera_pos);
+	float entry_dist = inside ? 0.0 : max(t.x, 0.0);
+	float exit_dist = t.y;
 
-    // Clamp fog to scene geometry
-    exit_dist = min(exit_dist, scene_dist);
+	exit_dist = min(exit_dist, scene_dist);
 
-    if (exit_dist <= entry_dist) {
-        discard;
-    }
+	if (exit_dist <= entry_dist) {
+		discard;
+	}
 
-    float fog_dist = exit_dist - entry_dist;
-    float fog_amount = 1.0 - exp(-fog_density * fog_dist);
+	float fog_dist = exit_dist - entry_dist;
+	float fog_amount = 1.0 - exp(-fog_density * fog_dist);
 
-    frag_color = vec4(fog_color.rgb, fog_amount);
+	frag_color = vec4(fog_color.rgb, fog_amount);
 }
 """
 
@@ -128,18 +121,16 @@ class FogVolume:
 
 	def _setup_depth_texture(self):
 		"""Get depth texture from renderer (simplepbr's buffer)"""
-		if hasattr(self.engine, 'renderer') and hasattr(self.engine.renderer, 'depth_tex'):
-			self._depth_tex = self.engine.renderer.depth_tex
-			print("Using simplepbr depth texture")
-		else:
-			# Fallback
-			self._depth_tex = Texture("depth")
-			base.win.addRenderTexture(
-				self._depth_tex,
-				GraphicsOutput.RTMBindOrCopy,
-				GraphicsOutput.RTPDepth
-			)
-			print("Using fallback depth texture")
+		self._depth_tex = self.engine.renderer.depth_tex
+
+	def _apply_fog_settings(self):
+		"""Apply shader and render settings to fog node"""
+		self._fog_node.setShader(self._shader)
+		self._fog_node.setTransparency(TransparencyAttrib.MAlpha)
+		self._fog_node.setDepthWrite(False)
+		self._fog_node.setDepthTest(False)
+		self._fog_node.setAttrib(CullFaceAttrib.make(CullFaceAttrib.MCullClockwise))
+		self._fog_node.setBin("transparent", 10)
 
 	def _create_volume(self):
 		"""Create the fog volume geometry with shader"""
@@ -151,14 +142,7 @@ class FogVolume:
 		self._fog_node.reparentTo(self.node)
 
 		self._shader = Shader.make(Shader.SL_GLSL, FOG_VOLUME_VERT, FOG_VOLUME_FRAG)
-		self._fog_node.setShader(self._shader)
-
-		self._fog_node.setTransparency(TransparencyAttrib.MAlpha)
-		self._fog_node.setDepthWrite(False)
-		self._fog_node.setDepthTest(False)
-		self._fog_node.setAttrib(CullFaceAttrib.make(CullFaceAttrib.MCullClockwise))
-		self._fog_node.setBin("transparent", 10)
-
+		self._apply_fog_settings()
 		self._update_shader_inputs()
 
 		if not self._enabled:
@@ -340,6 +324,7 @@ class FogVolume:
 				self._fog_node.hide()
 
 	def _rebuild(self):
+		"""Rebuild fog volume geometry"""
 		if self._fog_node:
 			self._fog_node.removeNode()
 		if self._debug_node:
@@ -348,13 +333,7 @@ class FogVolume:
 		self._fog_node = self._create_box_geom()
 		self._fog_node.reparentTo(self.node)
 
-		self._fog_node.setShader(self._shader)
-		self._fog_node.setTransparency(TransparencyAttrib.MAlpha)
-		self._fog_node.setDepthWrite(False)
-		self._fog_node.setDepthTest(False)
-		self._fog_node.setAttrib(CullFaceAttrib.make(CullFaceAttrib.MCullClockwise))
-		self._fog_node.setBin("transparent", 10)
-
+		self._apply_fog_settings()
 		self._update_shader_inputs()
 
 		if not self._enabled:
@@ -364,14 +343,12 @@ class FogVolume:
 			self._create_debug_wireframe()
 
 	def update(self):
+		"""Update per-frame shader inputs"""
 		if not self._fog_node:
 			return
 
-		cam_pos = base.camera.getPos(base.render)
-		cam_fwd = base.camera.getQuat(base.render).getForward()
-
-		self._fog_node.setShaderInput("camera_pos", cam_pos)
-		self._fog_node.setShaderInput("camera_forward", cam_fwd)
+		self._fog_node.setShaderInput("camera_pos", base.camera.getPos(base.render))
+		self._fog_node.setShaderInput("camera_forward", base.camera.getQuat(base.render).getForward())
 		self._fog_node.setShaderInput("screen_size", Vec2(base.win.getXSize(), base.win.getYSize()))
 
 		if self.debug_mode:

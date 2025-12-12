@@ -73,38 +73,21 @@ class Renderer:
 
 	def _setup_depth_texture(self):
 		"""Get depth texture from renderer (simplepbr's buffer)"""
-		# Try to get from renderer first
-		if hasattr(self.engine, 'renderer') and hasattr(self.engine.renderer, 'depth_tex'):
-			self._depth_tex = self.engine.renderer.depth_tex
-			print("Using simplepbr depth texture")
-		else:
-			# Fallback to creating our own (won't work with simplepbr)
-			self._depth_tex = Texture("depth")
-			base.win.addRenderTexture(
-				self._depth_tex,
-				GraphicsOutput.RTMBindOrCopy,
-				GraphicsOutput.RTPDepth
-			)
-			print("Using fallback depth texture")
+		self._depth_tex = self.engine.renderer.depth_tex
 
 	def _setup_camera(self):
 		"""Setup camera defaults"""
 		base.camLens.setFov(90)
 		base.disableMouse()
 
-		self.pipeline = simplepbr.init(
-			enable_fog=True
-		)
+		self.pipeline = simplepbr.init(enable_fog=True)
 
 		if self.pipeline._filtermgr:
 			buf = self.pipeline._filtermgr.buffers[0]
 
-			# Add depth texture to simplepbr's buffer
 			from panda3d.core import Texture, GraphicsOutput
 			self.depth_tex = Texture("simplepbr_depth")
-			success = buf.addRenderTexture(self.depth_tex, GraphicsOutput.RTMBindOrCopy, GraphicsOutput.RTPDepth)
-			print("Depth texture added:", success)
-			print("Depth texture:", self.depth_tex)
+			buf.addRenderTexture(self.depth_tex, GraphicsOutput.RTMBindOrCopy, GraphicsOutput.RTPDepth)
 
 	# Window properties
 	@property

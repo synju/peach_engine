@@ -83,7 +83,7 @@ class ConsoleBackground:
 			'breath_speed': 0.4,
 			'breath_amount': 0.6,
 			'blur': 0.5,
-			'opacity': 0.0,
+			'opacity': 0.2,
 			'max_speed': 0.04,
 			'scale_x': 8.0,
 			'scale_y': 5.5,
@@ -95,7 +95,7 @@ class ConsoleBackground:
 			'breath_speed': 0.3,
 			'breath_amount': 0.8,
 			'blur': 1.0,
-			'opacity': 0.5,
+			'opacity': 0.3,
 			'max_speed': 0.05,
 			'scale_x': 2.0,
 			'scale_y': 1.5
