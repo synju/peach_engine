@@ -4,21 +4,10 @@ from direct.showbase.ShowBase import ShowBase
 from panda3d.bullet import BulletCapsuleShape, BulletRigidBodyNode, ZUp
 from panda3d.core import NodePath, Point3, Vec3
 
-from engine.camera import Camera
+from area_43.player_camera import PlayerCamera
 
 base: ShowBase
 
-class PlayerCamera(Camera):
-	"""Camera controlled by Player - no direct input"""
-
-	def __init__(self, engine, near_clip=0.1, far_clip=10000):
-		super().__init__(engine, (0, 0, 0), (0, 0, 0), near_clip, far_clip)
-
-	def handle_input(self, input_handler):
-		pass
-
-	def update(self, dt):
-		pass
 
 class Player:
 	"""First-person player controller with built-in camera and physics"""
@@ -90,6 +79,11 @@ class Player:
 		# Mouse look
 		self.sensitivity = 100
 		self.looking = False
+
+		# Noclip mode
+		self.noclip_mode = False
+		self.noclip_speed = 5.0
+		self.noclip_fast_speed = 15.0
 
 		# Built-in camera
 		self.camera = PlayerCamera(engine, near_clip, far_clip)
@@ -294,42 +288,57 @@ class Player:
 			start.z + dz * distance
 		)
 
-		# Raycast to find hit point
+		# Get actual hit position
 		result = self.physics.rayTestClosest(start, end)
-
-		ball_color = (1, 0, 0, 1)  # Red by default
-
 		if result.hasHit():
 			hit_pos = result.getHitPos()
-			hit_node = result.getNode()
-
-			# Check if it's an interactable object
-			scene = self.engine.scene_handler.current_scene
-			if hasattr(scene, 'interactive_objects'):
-				for obj in scene.interactive_objects:
-					if obj.collision_body == hit_node:
-						ball_color = (0, 1, 0, 1)  # Green for interactable
-						break
-		else:
-			hit_pos = end
+			end = hit_pos
 
 		# Draw line
 		lines = LineSegs()
-		lines.setThickness(3)
-		lines.setColor(1, 0, 0, 1)
+		lines.setColor(0, 1, 0, 1)
+		lines.setThickness(2)
 		lines.moveTo(start)
-		lines.drawTo(hit_pos)
+		lines.drawTo(end)
 		self._debug_ray_line = base.render.attachNewNode(lines.create())
+		self._debug_ray_line.setBin('fixed', 100)
+		self._debug_ray_line.setDepthTest(False)
+		self._debug_ray_line.setDepthWrite(False)
+		self._debug_ray_line.setLightOff()
 
-		# Draw sphere at hit point
-		self._debug_ray_ball = base.loader.loadModel("models/misc/sphere")
-		self._debug_ray_ball.setScale(0.010)
-		self._debug_ray_ball.setPos(hit_pos)
-		self._debug_ray_ball.setColor(*ball_color)
-		self._debug_ray_ball.setLightOff()
-		self._debug_ray_ball.reparentTo(base.render)
+		# Draw ball at end
+		if result.hasHit():
+			from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexWriter
+			from panda3d.core import Geom, GeomPoints, GeomNode
 
-	def get_look_hit(self, distance=3.0):
+			fmt = GeomVertexFormat.get_v3c4()
+			vdata = GeomVertexData('ball', fmt, Geom.UHStatic)
+			vdata.setNumRows(1)
+
+			vertex = GeomVertexWriter(vdata, 'vertex')
+			color = GeomVertexWriter(vdata, 'color')
+
+			vertex.addData3(end.x, end.y, end.z)
+			color.addData4(1, 0, 0, 1)
+
+			points = GeomPoints(Geom.UHStatic)
+			points.addVertex(0)
+			points.closePrimitive()
+
+			geom = Geom(vdata)
+			geom.addPrimitive(points)
+
+			node = GeomNode('debug_ball')
+			node.addGeom(geom)
+
+			self._debug_ray_ball = base.render.attachNewNode(node)
+			self._debug_ray_ball.setRenderModeThickness(10)
+			self._debug_ray_ball.setBin('fixed', 100)
+			self._debug_ray_ball.setDepthTest(False)
+			self._debug_ray_ball.setDepthWrite(False)
+			self._debug_ray_ball.setLightOff()
+
+	def get_look_hit(self, distance=5.0):
 		"""Raycast from eye in look direction, return hit node or None"""
 		heading_rad = math.radians(self._heading)
 		pitch_rad = math.radians(self._pitch)
@@ -474,8 +483,28 @@ class Player:
 		self.is_crouching = False
 		self.is_sprinting = False
 
+		# Disable noclip on reset
+		if self.noclip_mode:
+			self.noclip_mode = False
+			self.physics.attachRigidBody(self.body)
+
 		self.node.setPos(*self._position)
 		self._update_camera()
+
+	def toggle_noclip(self):
+		"""Toggle noclip mode on/off"""
+		self.noclip_mode = not self.noclip_mode
+
+		if self.noclip_mode:
+			# Disable collision
+			self.physics.removeRigidBody(self.body)
+			self.velocity = Vec3(0, 0, 0)
+		else:
+			# Re-enable collision
+			self.physics.attachRigidBody(self.body)
+			self.is_grounded = False
+
+		return self.noclip_mode
 
 	def handle_input(self, input_handler):
 		# Always looking - lock mouse on first input
@@ -511,6 +540,10 @@ class Player:
 		if input_handler.is_key_down('f'):
 			self.try_interact()
 
+		if input_handler.is_key_down('v'):
+			self.toggle_noclip()
+			print(f"Noclip: {'ON' if self.noclip_mode else 'OFF'}")
+
 	def update(self, dt):
 		if not self.looking:
 			self._update_camera()
@@ -521,6 +554,7 @@ class Player:
 		# Get input direction
 		move_x = 0
 		move_y = 0
+		move_z = 0
 
 		if input_handler.is_key_pressed('w'):
 			move_y += 1
@@ -530,6 +564,47 @@ class Player:
 			move_x += 1
 		if input_handler.is_key_pressed('a'):
 			move_x -= 1
+
+		# Noclip mode - fly freely
+		if self.noclip_mode:
+			if input_handler.is_key_pressed('space'):
+				move_z += 1
+			if input_handler.is_key_pressed('control'):
+				move_z -= 1
+
+			# Calculate 3D movement direction based on camera orientation
+			heading_rad = math.radians(self._heading)
+			pitch_rad = math.radians(self._pitch)
+
+			# Forward vector (includes pitch)
+			forward = Vec3(
+				-math.sin(heading_rad) * math.cos(pitch_rad),
+				math.cos(heading_rad) * math.cos(pitch_rad),
+				math.sin(pitch_rad)
+			)
+			# Right vector (horizontal only)
+			right = Vec3(math.cos(heading_rad), math.sin(heading_rad), 0)
+			# Up vector (world up)
+			up = Vec3(0, 0, 1)
+
+			# Build movement vector
+			move_dir = forward * move_y + right * move_x + up * move_z
+
+			# Normalize if moving
+			if move_dir.length() > 0:
+				move_dir.normalize()
+
+			# Speed (shift for fast)
+			speed = self.noclip_fast_speed if input_handler.is_key_pressed('shift') else self.noclip_speed
+
+			# Apply movement directly (no collision)
+			self._position[0] += move_dir.x * speed * dt
+			self._position[1] += move_dir.y * speed * dt
+			self._position[2] += move_dir.z * speed * dt
+
+			self.node.setPos(*self._position)
+			self._update_camera()
+			return
 
 		self.is_moving = move_x != 0 or move_y != 0
 
@@ -620,7 +695,9 @@ class Player:
 		if self._debug_ray_ball:
 			self._debug_ray_ball.removeNode()
 		if self.body:
-			self.physics.removeRigidBody(self.body)
+			# Only remove if attached (not in noclip mode)
+			if not self.noclip_mode:
+				self.physics.removeRigidBody(self.body)
 		if self.node:
 			self.node.removeNode()
 			self.node = None
