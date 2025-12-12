@@ -71,8 +71,8 @@ class WorkshopScene(Scene):
 		# Q3 style fog volume
 		self.fog = FogVolume(
 			self.engine,
-			position=(4.40, -3, 2),
-			size=(10, 8, 4),
+			position=(4.4, -2.9, 1.9),
+			size=(9.5, 7.5, 3.6),
 			color=(1, 1, 1),
 			density=0.1,
 			debug_mode=True
