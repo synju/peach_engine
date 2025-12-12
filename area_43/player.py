@@ -94,6 +94,9 @@ class Player:
 		# Apply initial position
 		self.position = position
 
+		# Register console commands
+		self.engine.scene_handler.console.register_command('noclip', self.toggle_noclip, "Toggle noclip mode")
+
 	def _setup_collider(self):
 		"""Create capsule collider for player"""
 		shape = BulletCapsuleShape(self.radius, self.height - (self.radius * 2), ZUp)
@@ -491,7 +494,7 @@ class Player:
 		self.node.setPos(*self._position)
 		self._update_camera()
 
-	def toggle_noclip(self):
+	def toggle_noclip(self, args):
 		"""Toggle noclip mode on/off"""
 		self.noclip_mode = not self.noclip_mode
 
@@ -504,7 +507,7 @@ class Player:
 			self.physics.attachRigidBody(self.body)
 			self.is_grounded = False
 
-		return self.noclip_mode
+		return f"Noclip: {'ON' if self.noclip_mode else 'OFF'}"
 
 	def handle_input(self, input_handler):
 		# Always looking - lock mouse on first input
@@ -541,8 +544,8 @@ class Player:
 			self.try_interact()
 
 		if input_handler.is_key_down('v'):
-			self.toggle_noclip()
-			print(f"Noclip: {'ON' if self.noclip_mode else 'OFF'}")
+			self.toggle_noclip(args=None)
+			self.engine.scene_handler.console.print(f"Noclip: {'ON' if self.noclip_mode else 'OFF'}")
 
 	def update(self, dt):
 		if not self.looking:

@@ -1,5 +1,7 @@
 from direct.showbase.ShowBase import ShowBase
 
+from engine.console import Console
+
 # Global created by ShowBase
 base: ShowBase
 
@@ -22,6 +24,10 @@ class SceneHandler:
 
 		# Setup debug elements
 		self._setup_debug()
+
+		# Console (always available)
+		self.console = Console(engine, toggle_key='`')
+		self.console.print("Engine started")
 
 	def _setup_debug(self):
 		"""Setup debug grid and UI"""
@@ -127,3 +133,7 @@ class SceneHandler:
 			self.grid.removeNode()
 		if self.debug_ui:
 			self.debug_ui.container.destroy()
+
+		# Cleanup console
+		if self.console:
+			self.console.destroy()

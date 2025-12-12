@@ -98,6 +98,10 @@ class WorkshopScene(Scene):
 	def handle_input(self, input_handler):
 		super().handle_input(input_handler)
 
+		# Skip all input if console is open
+		if self.engine.scene_handler.console.is_open:
+			return
+
 		# Reset player position
 		if input_handler.is_key_down('f5'):
 			self.player.reset()
@@ -115,7 +119,9 @@ class WorkshopScene(Scene):
 		self.engine.physics.doPhysics(dt)
 
 		# Player
-		self.player.update(dt)
+		# Skip player update if console is open
+		if not self.engine.scene_handler.console.is_open:
+			self.player.update(dt)
 
 		# Interactive objects
 		for obj in self.interactive_objects:
