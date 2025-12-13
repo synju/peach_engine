@@ -165,65 +165,55 @@ class Player:
 		move_y = self.velocity.y * dt
 		move_len = math.sqrt(move_x * move_x + move_y * move_y)
 
-		if move_len < 0.0001:
-			return
+		# Horizontal movement (only if moving)
+		if move_len >= 0.0001:
+			new_x = self._position[0] + move_x
+			new_y = self._position[1] + move_y
 
-		# Test destination
-		new_x = self._position[0] + move_x
-		new_y = self._position[1] + move_y
+			blocked, normal = self._test_position(new_x, new_y, self._position[2])
 
-		blocked, _ = self._test_position(new_x, new_y, self._position[2])
+			if not blocked:
+				# Clear path - move there
+				self._position[0] = new_x
+				self._position[1] = new_y
+			else:
+				# Blocked - find slide direction
+				move_angle = math.atan2(move_y, move_x)
 
-		if not blocked:
-			# Clear path - move there
-			self._position[0] = new_x
-			self._position[1] = new_y
-		else:
-			# Blocked - find slide direction by testing angles
-			# Start from movement direction, test outward in both directions
-			move_angle = math.atan2(move_y, move_x)
+				# Cross product to determine which way to test
+				move_nx = move_x / move_len
+				move_ny = move_y / move_len
+				cross = move_nx * normal.y - move_ny * normal.x
 
-			found_slide = False
+				if abs(cross) < 0.01:
+					# Facing wall directly
+					self.velocity.x = 0
+					self.velocity.y = 0
+				else:
+					direction = -1 if cross > 0 else 1
+					found_slide = False
 
-			# Test angles from 10 to 90 degrees in both directions
-			for offset_deg in range(10, 91, 10):
-				offset_rad = math.radians(offset_deg)
+					for offset_deg in range(10, 91, 10):
+						offset_rad = math.radians(offset_deg) * direction
 
-				# Try positive angle (left)
-				test_angle = move_angle + offset_rad
-				test_x = self._position[0] + math.cos(test_angle) * move_len
-				test_y = self._position[1] + math.sin(test_angle) * move_len
+						test_angle = move_angle + offset_rad
+						test_x = self._position[0] + math.cos(test_angle) * move_len
+						test_y = self._position[1] + math.sin(test_angle) * move_len
 
-				blocked_left, _ = self._test_position(test_x, test_y, self._position[2])
+						test_blocked, _ = self._test_position(test_x, test_y, self._position[2])
 
-				if not blocked_left:
-					# Scale speed by how much we're deflecting (cos of offset)
-					speed_scale = math.cos(offset_rad)
-					self._position[0] += math.cos(test_angle) * move_len * speed_scale
-					self._position[1] += math.sin(test_angle) * move_len * speed_scale
-					found_slide = True
-					break
+						if not test_blocked:
+							speed_scale = math.cos(math.radians(offset_deg))
+							self._position[0] += math.cos(test_angle) * move_len * speed_scale
+							self._position[1] += math.sin(test_angle) * move_len * speed_scale
+							found_slide = True
+							break
 
-				# Try negative angle (right)
-				test_angle = move_angle - offset_rad
-				test_x = self._position[0] + math.cos(test_angle) * move_len
-				test_y = self._position[1] + math.sin(test_angle) * move_len
+					if not found_slide:
+						self.velocity.x = 0
+						self.velocity.y = 0
 
-				blocked_right, _ = self._test_position(test_x, test_y, self._position[2])
-
-				if not blocked_right:
-					speed_scale = math.cos(offset_rad)
-					self._position[0] += math.cos(test_angle) * move_len * speed_scale
-					self._position[1] += math.sin(test_angle) * move_len * speed_scale
-					found_slide = True
-					break
-
-			# If no slide found at 90 degrees, we're in a corner or facing wall directly
-			if not found_slide:
-				self.velocity.x = 0
-				self.velocity.y = 0
-
-		# Vertical movement
+		# Vertical movement (always runs)
 		self._position[2] += self.velocity.z * dt
 
 		self.node.setPos(*self._position)
@@ -270,6 +260,83 @@ class Player:
 				self.node.setPos(*self._position)
 		else:
 			self.is_grounded = False
+
+	def _check_ceiling(self):
+		"""Raycast up to check for ceiling collision when jumping"""
+		if self.velocity.z <= 0:
+			return
+
+		# Check center + 8 points around the capsule edge
+		offsets = [(0, 0)]
+		for i in range(8):
+			angle = math.radians(i * 45)
+			offsets.append((
+				math.cos(angle) * self.radius * 0.8,
+				math.sin(angle) * self.radius * 0.8
+			))
+
+		for ox, oy in offsets:
+			start = Point3(
+				self._position[0] + ox,
+				self._position[1] + oy,
+				self._position[2] + self._current_height
+			)
+			end = Point3(
+				self._position[0] + ox,
+				self._position[1] + oy,
+				self._position[2] + self._current_height + 0.2
+			)
+
+			result = self.physics.rayTestClosest(start, end)
+
+			if result.hasHit():
+				# Hit ceiling - stop upward velocity
+				ceiling_z = result.getHitPos().z
+				self._position[2] = ceiling_z - self._current_height - 0.01
+				self.velocity.z = 0
+				self.node.setPos(*self._position)
+				return
+
+	def _can_uncrouch(self):
+		"""Check if there's enough headroom to stand up"""
+		# How much higher the head will be when standing
+		height_diff = self.height - self.crouch_height
+
+		# Raycast from current head to standing head height
+		start = Point3(
+			self._position[0],
+			self._position[1],
+			self._position[2] + self._current_height
+		)
+		end = Point3(
+			self._position[0],
+			self._position[1],
+			self._position[2] + self.height + 0.05
+		)
+
+		result = self.physics.rayTestClosest(start, end)
+
+		return not result.hasHit()
+
+	def _snap_to_ground(self):
+		"""Raycast down to find ground and place player on it"""
+		start = Point3(
+			self._position[0],
+			self._position[1],
+			self._position[2] + 1.0
+		)
+		end = Point3(
+			self._position[0],
+			self._position[1],
+			self._position[2] - 100.0
+		)
+
+		result = self.physics.rayTestClosest(start, end)
+
+		if result.hasHit():
+			self._position[2] = result.getHitPos().z
+			self.is_grounded = True
+			self.node.setPos(*self._position)
 
 	def _can_lean(self, direction):
 		"""Check if we can lean in direction (-1 left, 1 right)"""
@@ -558,7 +625,19 @@ class Player:
 		self.heading -= dx * self.sensitivity
 		self.pitch += dy * self.sensitivity
 
-		self.is_crouching = input_handler.is_key_pressed('control')
+		# Crouch - check headroom before uncrouching
+		wants_crouch = input_handler.is_key_pressed('control')
+		if wants_crouch:
+			self.is_crouching = True
+		else:
+			# Only uncrouch if there's headroom
+			if self.is_crouching:
+				if self._can_uncrouch():
+					self.is_crouching = False
+			# else: stay crouched
+			else:
+				self.is_crouching = False
+
 		self.is_sprinting = (
 			input_handler.is_key_pressed('shift') and
 			not self.is_crouching and
@@ -587,6 +666,13 @@ class Player:
 
 	def update(self, dt):
 		if not self.looking:
+			# Still apply gravity and ground check even before mouse input
+			if not self.noclip_mode:
+				if not self.is_grounded:
+					self.velocity.z += self.gravity * dt
+				self._slide_move(dt)
+				self._check_ground()
+				self._check_ceiling()
 			self._update_camera()
 			return
 
@@ -715,6 +801,9 @@ class Player:
 
 		# Ground check
 		self._check_ground()
+
+		# Ceiling check
+		self._check_ceiling()
 
 		# Smooth lean transition
 		if self._current_lean != self._lean:

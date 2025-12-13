@@ -65,7 +65,7 @@ class WorkshopScene(Scene):
 		#self.sun_light = DirectionalLight(self.engine, 'sun', color=(1, 1, 1, 1), direction=(-1, 1, -1), position=(0, 0, 10), light_enabled=True)
 
 		# Player
-		self.player = Player(self.engine, self.engine.physics, position=(9.25, 0.56, 1.75), rotation=(-3, 124), near_clip=0.01)
+		self.player = Player(self.engine, self.engine.physics, position=(5.11, -2.12, 0.7), rotation=(-3, 124), near_clip=0.01)
 		self.engine.renderer.set_camera(self.player.camera)
 
 		# Interactive Cube
