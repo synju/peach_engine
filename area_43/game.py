@@ -7,8 +7,9 @@ if __name__ == '__main__':
         width=1280,
         height=720,
         title="Area 43",
-        fps=60
+        fps=60,
     )
+    engine.debug_enabled = False
 
     # Add scenes
     engine.scene_handler.add_scene('workshop', WorkshopScene(engine))

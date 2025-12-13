@@ -1,6 +1,7 @@
 from area_43.entities.entity_objects.interactive_cube import InteractiveCube
 from area_43.player import Player
 from engine.fog_linear import LinearDistanceFog
+from engine.hbao import HBAO
 from engine.light import AmbientLight, DirectionalLight
 from engine.mesh_object import MeshObject
 from engine.scene import Scene
@@ -40,6 +41,9 @@ class WorkshopScene(Scene):
 		self.fog_distance = None
 		self.fog_linear = None
 
+		# HBAO (Ambient Occlusion)
+		self.hbao = None
+
 		# Level
 		self.level = None
 
@@ -62,7 +66,7 @@ class WorkshopScene(Scene):
 		# Lighting
 		self.ambient_light = AmbientLight(self.engine, 'ambient', color=(0.3, 0.3, 0.3, 1), light_enabled=True)
 		#self.ambient_light = AmbientLight(self.engine, 'ambient', color=(0.3, 0.3, 0.3, 1), light_enabled=True)
-		#self.sun_light = DirectionalLight(self.engine, 'sun', color=(1, 1, 1, 1), direction=(-1, 1, -1), position=(0, 0, 10), light_enabled=True)
+		self.sun_light = DirectionalLight(self.engine, 'sun', color=(1, 1, 1, 1), direction=(-1, 1, -1), position=(0, 0, 10), light_enabled=True)
 
 		# Player
 		self.player = Player(self.engine, self.engine.physics, position=(5.11, -2.12, 0.7), rotation=(-3, 124), near_clip=0.01)
@@ -82,6 +86,9 @@ class WorkshopScene(Scene):
 		#self.fog = LinearDistanceFog(self.engine, color=(1.0, 1.0, 1.0), start=0, end=10, density=2.0)
 		#self.fog = LinearDistanceFog(self.engine, color=(0, 0, 0), start=0, end=5, density=1.25)
 		#self.fog = LinearDistanceFog(self.engine, color=(1.0, 0, 0), start=1, end=15, density=2.0)
+
+		# HBAO (Ambient Occlusion
+		self.hbao = HBAO(self.engine, intensity=1.0, debug=False)
 
 		# Entities
 		self.level = MeshObject(
@@ -132,9 +139,12 @@ class WorkshopScene(Scene):
 		# Fog
 		#self.fog.update()
 
+		# HBAO
+		self.hbao.update()
+
 		# Lighting
 		self.ambient_light.update()
-		#self.sun_light.update()
+		self.sun_light.update()
 
 	def on_exit(self):
 		super().on_exit()
@@ -144,13 +154,16 @@ class WorkshopScene(Scene):
 
 		# Lighting
 		self.ambient_light.destroy()
-		#self.sun_light.destroy()
+		self.sun_light.destroy()
 
 		# Interactive Cube
 		self.cube.destroy()
 
 		# Fog
 		#self.fog.destroy()
+
+		# HBAO
+		self.hbao.destroy()
 
 		# Player
 		self.player.destroy()
