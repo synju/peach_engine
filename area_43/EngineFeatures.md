@@ -1,33 +1,33 @@
 # Peach Engine Feature Ideas
 
 ## Visual Effects
-- Volumetric fog
-- Shadow mapping
-- Bloom
-- Screen-space reflections
+- Volumetric fog - DONE
 - Ambient occlusion
+- Film grain
+- CRT shader
+- Dithering
+- Water/reflective surfaces
+- Screen-space reflections
 - Particle system
 - Decals
+- Screen shake
+- Motion blur
+- Depth of field
+- Weather system
+- Day/night cycle
+- Portals
+- Mirrors
+- Bloom
+- Vignette
+- Shadow mapping
 - Post-processing stack
 - LOD system
 - Billboards
 - Sprite rendering
-- Water/reflective surfaces
-- Portals
-- Mirrors
 - Light probes
 - Cubemap reflections
 - Fog of war
-- Day/night cycle
-- Weather system
-- Screen shake
-- Motion blur
-- Depth of field
 - Chromatic aberration
-- Vignette
-- Film grain
-- CRT shader
-- Dithering
 - Color grading/LUT
 - Outline/edge detection
 - Cel shading
