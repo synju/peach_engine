@@ -3,7 +3,7 @@
 ## Visual Effects
 - Volumetric fog - DONE
 - Ambient occlusion - DONE
-- Dithering
+- Dithering - DONE
 - Film grain
 - CRT shader
 - Water/reflective surfaces
