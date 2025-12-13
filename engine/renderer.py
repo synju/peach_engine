@@ -3,7 +3,7 @@ from panda3d.core import (
 	NodePath, CardMaker, TextNode, WindowProperties,
 	GeomVertexFormat, GeomVertexData, GeomVertexWriter,
 	Geom, GeomLines, GeomTriangles, GeomNode,
-	Vec4, LColor
+	Vec4, LColor, GraphicsOutput, Texture
 )
 import simplepbr
 import sys
@@ -85,9 +85,13 @@ class Renderer:
 		if self.pipeline._filtermgr:
 			buf = self.pipeline._filtermgr.buffers[0]
 
-			from panda3d.core import Texture, GraphicsOutput
+			# Add depth texture
 			self.depth_tex = Texture("simplepbr_depth")
 			buf.addRenderTexture(self.depth_tex, GraphicsOutput.RTMBindOrCopy, GraphicsOutput.RTPDepth)
+
+			# Add color texture
+			self.color_tex = Texture("simplepbr_color")
+			buf.addRenderTexture(self.color_tex, GraphicsOutput.RTMBindOrCopy, GraphicsOutput.RTPColor)
 
 	# Window properties
 	@property

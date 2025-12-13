@@ -2,10 +2,10 @@
 
 ## Visual Effects
 - Volumetric fog - DONE
-- Ambient occlusion
+- Ambient occlusion - DONE
+- Dithering
 - Film grain
 - CRT shader
-- Dithering
 - Water/reflective surfaces
 - Screen-space reflections
 - Particle system

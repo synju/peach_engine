@@ -1,5 +1,6 @@
 from area_43.entities.entity_objects.interactive_cube import InteractiveCube
 from area_43.player import Player
+from engine.dithering import Dithering
 from engine.fog_linear import LinearDistanceFog
 from engine.hbao import HBAO
 from engine.light import AmbientLight, DirectionalLight
@@ -88,9 +89,20 @@ class WorkshopScene(Scene):
 		#self.fog = LinearDistanceFog(self.engine, color=(1.0, 0, 0), start=1, end=15, density=2.0)
 
 		# HBAO (Ambient Occlusion
-		self.hbao = HBAO(self.engine, intensity=1.0, debug=False)
+		self.hbao = HBAO( self.engine, radius=0.3, intensity=1.0, samples=16, bias=0.1, hbao_enabled=True, debug=False)
 
-		# Entities
+		self.dithering = Dithering(
+			self.engine,
+			color_levels=8.0,  # Color quantization steps (lower = more retro/chunky, 8=PS1, 256=off)
+			strength=0.1,  # Dither pattern intensity (0.02-0.1, higher = more visible pattern)
+			opacity=0.5,  # Blend with original (0=off, 1=full effect)
+			gamma=2.2,  # Gamma correction (2.2=standard sRGB, higher=brighter, lower=darker)
+			contrast=1.0,  # Contrast (1.0=normal, <1=washed out, >1=punchy)
+			dithering_enabled=True,  # Toggle effect on/off
+			debug_mode=False  # Shows raw Bayer dither pattern
+		)
+
+		# Level
 		self.level = MeshObject(
 			self.engine,
 			'engine',

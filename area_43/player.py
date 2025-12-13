@@ -157,6 +157,45 @@ class Player:
 
 		return blocked, wall_normal
 
+	def _test_ceiling(self, x, y, z):
+		"""Test if capsule at position overlaps a ceiling. Returns True if blocked."""
+
+		# Create temp ghost at test position
+		shape = BulletCapsuleShape(self.radius, self._current_height - (self.radius * 2), ZUp)
+		ghost = BulletGhostNode('test_ceiling')
+		ghost.addShape(shape)
+		ghost_np = NodePath(ghost)
+		ghost_np.setPos(x, y, z + self._current_height / 2 + 0.05)
+
+		self.physics.attachGhost(ghost)
+
+		# Check overlaps
+		result = self.physics.contactTest(ghost)
+
+		blocked = False
+
+		for contact in result.getContacts():
+			other = contact.getNode0() if contact.getNode1() == ghost else contact.getNode1()
+			if other == self.body:
+				continue
+
+			manifold = contact.getManifoldPoint()
+			normal = manifold.getNormalWorldOnB()
+
+			# Flip normal if needed
+			if contact.getNode0() == ghost:
+				normal = Vec3(-normal.x, -normal.y, -normal.z)
+
+			# Ceiling has downward-facing normal (negative Z)
+			if normal.z < -self.max_slope:
+				blocked = True
+				break
+
+		self.physics.removeGhost(ghost)
+		ghost_np.removeNode()
+
+		return blocked
+
 	def _slide_move(self, dt):
 		"""Wall sliding with overlap testing - finds slide direction iteratively"""
 
@@ -167,54 +206,86 @@ class Player:
 
 		# Horizontal movement (only if moving)
 		if move_len >= 0.0001:
+			# Test destination
 			new_x = self._position[0] + move_x
 			new_y = self._position[1] + move_y
 
-			blocked, normal = self._test_position(new_x, new_y, self._position[2])
+			blocked, _ = self._test_position(new_x, new_y, self._position[2])
 
 			if not blocked:
 				# Clear path - move there
 				self._position[0] = new_x
 				self._position[1] = new_y
 			else:
-				# Blocked - find slide direction
+				# Blocked - find slide direction by testing angles
+				# Start from movement direction, test outward in both directions
 				move_angle = math.atan2(move_y, move_x)
 
-				# Cross product to determine which way to test
-				move_nx = move_x / move_len
-				move_ny = move_y / move_len
-				cross = move_nx * normal.y - move_ny * normal.x
+				found_slide = False
 
-				if abs(cross) < 0.01:
-					# Facing wall directly
+				# Test angles from 10 to 90 degrees in both directions
+				for offset_deg in range(10, 91, 10):
+					offset_rad = math.radians(offset_deg)
+
+					# Try positive angle (left)
+					test_angle = move_angle + offset_rad
+					test_x = self._position[0] + math.cos(test_angle) * move_len
+					test_y = self._position[1] + math.sin(test_angle) * move_len
+
+					blocked_left, _ = self._test_position(test_x, test_y, self._position[2])
+
+					if not blocked_left:
+						# Scale speed by how much we're deflecting (cos of offset)
+						speed_scale = math.cos(offset_rad)
+						self._position[0] += math.cos(test_angle) * move_len * speed_scale
+						self._position[1] += math.sin(test_angle) * move_len * speed_scale
+						found_slide = True
+						break
+
+					# Try negative angle (right)
+					test_angle = move_angle - offset_rad
+					test_x = self._position[0] + math.cos(test_angle) * move_len
+					test_y = self._position[1] + math.sin(test_angle) * move_len
+
+					blocked_right, _ = self._test_position(test_x, test_y, self._position[2])
+
+					if not blocked_right:
+						speed_scale = math.cos(offset_rad)
+						self._position[0] += math.cos(test_angle) * move_len * speed_scale
+						self._position[1] += math.sin(test_angle) * move_len * speed_scale
+						found_slide = True
+						break
+
+				# If no slide found at 90 degrees, we're in a corner or facing wall directly
+				if not found_slide:
 					self.velocity.x = 0
 					self.velocity.y = 0
-				else:
-					direction = -1 if cross > 0 else 1
-					found_slide = False
 
-					for offset_deg in range(10, 91, 10):
-						offset_rad = math.radians(offset_deg) * direction
+		# Vertical movement - check ceiling BEFORE moving up
+		if self.velocity.z > 0:
+			# Moving up - check for ceiling using ghost test
+			move_z = self.velocity.z * dt
+			new_z = self._position[2] + move_z
 
-						test_angle = move_angle + offset_rad
-						test_x = self._position[0] + math.cos(test_angle) * move_len
-						test_y = self._position[1] + math.sin(test_angle) * move_len
+			# Test if new position would overlap ceiling
+			if self._test_ceiling(self._position[0], self._position[1], new_z):
+				# Binary search to find max height we can reach
+				low_z = self._position[2]
+				high_z = new_z
+				for _ in range(5):  # 5 iterations gives ~3% precision
+					mid_z = (low_z + high_z) / 2
+					if self._test_ceiling(self._position[0], self._position[1], mid_z):
+						high_z = mid_z
+					else:
+						low_z = mid_z
 
-						test_blocked, _ = self._test_position(test_x, test_y, self._position[2])
-
-						if not test_blocked:
-							speed_scale = math.cos(math.radians(offset_deg))
-							self._position[0] += math.cos(test_angle) * move_len * speed_scale
-							self._position[1] += math.sin(test_angle) * move_len * speed_scale
-							found_slide = True
-							break
-
-					if not found_slide:
-						self.velocity.x = 0
-						self.velocity.y = 0
-
-		# Vertical movement (always runs)
-		self._position[2] += self.velocity.z * dt
+				self._position[2] = low_z
+				self.velocity.z = 0
+			else:
+				self._position[2] = new_z
+		else:
+			# Moving down or stationary
+			self._position[2] += self.velocity.z * dt
 
 		self.node.setPos(*self._position)
 
@@ -299,44 +370,28 @@ class Player:
 
 	def _can_uncrouch(self):
 		"""Check if there's enough headroom to stand up"""
-		# How much higher the head will be when standing
-		height_diff = self.height - self.crouch_height
+		# Create a standing-height capsule and check for any overlap
+		shape = BulletCapsuleShape(self.radius, self.height - (self.radius * 2), ZUp)
+		ghost = BulletGhostNode('uncrouch_test')
+		ghost.addShape(shape)
+		ghost_np = NodePath(ghost)
+		ghost_np.setPos(self._position[0], self._position[1], self._position[2] + self.height / 2 + 0.05)
 
-		# Raycast from current head to standing head height
-		start = Point3(
-			self._position[0],
-			self._position[1],
-			self._position[2] + self._current_height
-		)
-		end = Point3(
-			self._position[0],
-			self._position[1],
-			self._position[2] + self.height + 0.05
-		)
+		self.physics.attachGhost(ghost)
+		result = self.physics.contactTest(ghost)
 
-		result = self.physics.rayTestClosest(start, end)
+		blocked = False
+		for contact in result.getContacts():
+			other = contact.getNode0() if contact.getNode1() == ghost else contact.getNode1()
+			if other == self.body:
+				continue
+			blocked = True
+			break
 
-		return not result.hasHit()
+		self.physics.removeGhost(ghost)
+		ghost_np.removeNode()
 
-	def _snap_to_ground(self):
-		"""Raycast down to find ground and place player on it"""
-		start = Point3(
-			self._position[0],
-			self._position[1],
-			self._position[2] + 1.0
-		)
-		end = Point3(
-			self._position[0],
-			self._position[1],
-			self._position[2] - 100.0
-		)
-
-		result = self.physics.rayTestClosest(start, end)
-
-		if result.hasHit():
-			self._position[2] = result.getHitPos().z
-			self.is_grounded = True
-			self.node.setPos(*self._position)
+		return not blocked
 
 	def _can_lean(self, direction):
 		"""Check if we can lean in direction (-1 left, 1 right)"""
@@ -629,14 +684,9 @@ class Player:
 		wants_crouch = input_handler.is_key_pressed('control')
 		if wants_crouch:
 			self.is_crouching = True
-		else:
-			# Only uncrouch if there's headroom
-			if self.is_crouching:
-				if self._can_uncrouch():
-					self.is_crouching = False
-			# else: stay crouched
-			else:
-				self.is_crouching = False
+		elif self.is_crouching and self._can_uncrouch():
+			self.is_crouching = False
+		# else: stay crouched until there's headroom
 
 		self.is_sprinting = (
 			input_handler.is_key_pressed('shift') and
@@ -672,7 +722,6 @@ class Player:
 					self.velocity.z += self.gravity * dt
 				self._slide_move(dt)
 				self._check_ground()
-				self._check_ceiling()
 			self._update_camera()
 			return
 
@@ -801,9 +850,6 @@ class Player:
 
 		# Ground check
 		self._check_ground()
-
-		# Ceiling check
-		self._check_ceiling()
 
 		# Smooth lean transition
 		if self._current_lean != self._lean:
