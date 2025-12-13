@@ -79,7 +79,7 @@ class WorkshopScene(Scene):
 		#self.fog = DistanceFog(self.engine, color=(1.0, 1.0, 1.0), density=0.1)
 
 		# Ranged Distance Fog
-		self.fog = LinearDistanceFog(self.engine, color=(1.0, 1.0, 1.0), start=0, end=10, density=2.0)
+		#self.fog = LinearDistanceFog(self.engine, color=(1.0, 1.0, 1.0), start=0, end=10, density=2.0)
 		#self.fog = LinearDistanceFog(self.engine, color=(0, 0, 0), start=0, end=5, density=1.25)
 		#self.fog = LinearDistanceFog(self.engine, color=(1.0, 0, 0), start=1, end=15, density=2.0)
 
@@ -130,7 +130,7 @@ class WorkshopScene(Scene):
 			obj.update(dt)
 
 		# Fog
-		self.fog.update()
+		#self.fog.update()
 
 		# Lighting
 		self.ambient_light.update()
@@ -150,7 +150,7 @@ class WorkshopScene(Scene):
 		self.cube.destroy()
 
 		# Fog
-		self.fog.destroy()
+		#self.fog.destroy()
 
 		# Player
 		self.player.destroy()
