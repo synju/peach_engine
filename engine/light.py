@@ -128,7 +128,6 @@ class Light:
 		self.light = None
 		self.node = None
 
-
 class AmbientLight(Light):
 	"""Ambient light - illuminates everything equally"""
 
@@ -252,7 +251,6 @@ class DirectionalLight(Light):
 			self._debug_arrow.removeNode()
 			self._debug_arrow = None
 		super().destroy()
-
 
 class PointLight(Light):
 	"""Point light - emits from a position in all directions"""

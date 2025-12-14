@@ -4,33 +4,38 @@
 - Volumetric fog - DONE
 - Ambient occlusion - DONE
 - Dithering - DONE
-- Film grain
-- CRT shader
-- Water/reflective surfaces
-- Screen-space reflections
-- Particle system
-- Decals
-- Screen shake
+- Film grain - DONE
+- CRT shader - DONE
+- Vignette - DONE
+- Post-processing stack
+- Pixelate
+- Bloom
 - Motion blur
 - Depth of field
+- Screen-space reflections
+- Chromatic aberration
+- Cel shading
+- 
+- Screen shake
+- Water/reflective surfaces
+- Particle system
+- Decals
 - Weather system
+- 
 - Day/night cycle
 - Portals
 - Mirrors
-- Bloom
-- Vignette
 - Shadow mapping
-- Post-processing stack
 - LOD system
 - Billboards
 - Sprite rendering
 - Light probes
 - Cubemap reflections
 - Fog of war
-- Chromatic aberration
+- 
 - Color grading/LUT
 - Outline/edge detection
-- Cel shading
+- 
 
 ## Animation
 - Skeletal animation
