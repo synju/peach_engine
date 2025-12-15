@@ -1,9 +1,9 @@
 from area_43.entities.entity_creatures.spike_monster import SpikeMonster
+from engine.effects.fog_distance import DistanceFog
+from engine.effects.fog_linear import LinearFog
+
 from engine.effects.scanlines import Scanlines
 from engine.effects.shadow_mask import ShadowMask
-from engine.fogs.fog_distance import DistanceFog
-from engine.fogs.fog_linear import LinearDistanceFog
-from engine.fogs.fog_volume import FogVolume
 from engine.light import AmbientLight, DirectionalLight, PointLight
 from engine.mesh_object import MeshObject
 from engine.scene import Scene
@@ -90,15 +90,15 @@ class WorkshopScene(Scene):
 		self.cube.set_interact(self.some_function)
 
 		# Fog Volume (Quake 3 Arena)
-		#self.fog = FogVolume(self.engine, position=(4.4, -2.9, 1.9), size=(9.5, 7.5, 3.6), color=(1, 1, 1), density=0.1, debug_mode=False)
+		# self.fog = FogVolume(self.engine, position=(4.4, -2.9, 1.9), size=(9.5, 7.5, 3.6), color=(1, 1, 1), density=0.1, debug_mode=False)
 
 		# Fog Distance (Silent Hill)
 		#	self.fog = DistanceFog(self.engine, color=(1.0, 1.0, 1.0), density=0.1)
 
 		# Ranged Distance Fog
-		self.fog = LinearDistanceFog(self.engine, color=(1.0, 1.0, 1.0), start=0, end=10, density=0.5)
+		# self.fog = LinearDistanceFog(self.engine, color=(1.0, 1.0, 1.0), start=0, end=10, density=0.5)
 		# self.fog = LinearDistanceFog(self.engine, color=(0, 0, 0), start=0, end=5, density=1.25)
-		#self.fog = LinearDistanceFog(self.engine, color=(1.0, 0, 0), start=1, end=15, density=2.0)
+		# self.fog = LinearDistanceFog(self.engine, color=(1.0, 0, 0), start=1, end=15, density=2.0)
 
 		# =============================================
 		# Post-Processing Stack (all effects unified)
@@ -112,7 +112,37 @@ class WorkshopScene(Scene):
 			samples=16,
 			debug=False
 		))
-		hbao.enabled = False
+		hbao.enabled = True
+
+		# Add fogs (so post effects apply on top)
+
+		# # Option 1: Linear fog (start/end range)
+		# self.pp_stack.add_effect(LinearFog(
+		# 	color=(1.0, 1.0, 1.0),
+		# 	start=0,
+		# 	end=10,
+		# 	density=10.0
+		# ))
+
+		# Option 2: Distance fog (exponential, Silent Hill style)
+		self.pp_stack.add_effect(DistanceFog(
+			color=(1.0, 1.0, 1.0),
+			density=0.1
+		))
+
+		# Option 3: Multiple volume fogs
+		# self.pp_stack.add_effect(VolumeFog(
+		#     position=[4.4, -2.9, 1.9],
+		#     size=[9.5, 7.5, 3.6],
+		#     color=(1, 1, 1),
+		#     density=0.1
+		# ))
+		# self.pp_stack.add_effect(VolumeFog(
+		#     position=[10, 0, 2],
+		#     size=[5, 5, 5],
+		#     color=(1, 0, 0),
+		#     density=0.2
+		# ))
 
 		# Dithering
 		dither = self.pp_stack.add_effect(Dithering(
@@ -138,11 +168,11 @@ class WorkshopScene(Scene):
 		# Film Grain
 		grain = self.pp_stack.add_effect(FilmGrain(
 			intensity=0.1,
-			size=2.0,
-			speed=1.0,
+			size=1.0,
+			speed=1,
 			debug=False
 		))
-		grain.enabled = False
+		grain.enabled = True
 
 		# Vignette
 		vignette = self.pp_stack.add_effect(Vignette(
@@ -153,18 +183,6 @@ class WorkshopScene(Scene):
 		))
 		vignette.enabled = False
 
-		# CRT-NewPixie: blur, phosphor
-		newpixie = self.pp_stack.add_effect(CRTNewPixie(
-			accumulate=1.0,
-			blur_x=0.0,
-			blur_y=0.0,
-			curvature=0.0,
-			interference=0.0,
-			rolling_scanlines=0.0,
-			brightness=1.0,
-		))
-		newpixie.enabled = False
-
 		horizontal_scanlines = self.pp_stack.add_effect(Scanlines(
 			line_count=125.0,  # Number of lines
 			thickness=0.5,  # 0-1, how thick the dark lines are
@@ -173,7 +191,7 @@ class WorkshopScene(Scene):
 			softness=0.1,  # Edge blur (0.1-0.5), higher = smoother, less flicker
 			direction=0,  # 0=horizontal, 1=vertical
 		))
-		horizontal_scanlines.enabled = False
+		horizontal_scanlines.enabled = True
 
 		vertical_scanlines = self.pp_stack.add_effect(Scanlines(
 			line_count=400.0,  # Number of lines
@@ -183,16 +201,28 @@ class WorkshopScene(Scene):
 			softness=0.1,  # Edge blur (0.1-0.5), higher = smoother, less flicker
 			direction=1,  # 0=horizontal, 1=vertical
 		))
-		vertical_scanlines.enabled = False
+		vertical_scanlines.enabled = True
 
 		shadow = self.pp_stack.add_effect(ShadowMask(
 			mask_type=0,  # Aperture grille (vertical RGB stripes)
-			line_density=960.0,    # 640 RGB triplets across screen (like 640px wide CRT)
+			line_density=960.0,  # 640 RGB triplets across screen (like 640px wide CRT)
 			intensity=0.5,  # Subtle
 			dot_width=0.05,  # Thin phosphor lines (lower = thinner)
 			brightness=1.6,  # Compensate for darkening
 		))
 		shadow.enabled = False
+
+		# CRT-NewPixie: blur, phosphor
+		newpixie = self.pp_stack.add_effect(CRTNewPixie(
+			accumulate=1.0,
+			blur_x=0.0,
+			blur_y=0.0,
+			curvature=4.2,
+			interference=0.0,
+			rolling_scanlines=0.2,
+			brightness=1.0,
+		))
+		newpixie.enabled = False
 
 		# CRT-Lottes: masks, scanlines
 		lottes = self.pp_stack.add_effect(CRTLottes(
@@ -205,11 +235,11 @@ class WorkshopScene(Scene):
 			bloom_radius=0.0,
 			curvature=4.0,
 			corner_radius=0.05,
-			brightness=4.0,
+			brightness=1.0,
 			saturation=1.0,
 			vignette=0.0,
 		))
-		lottes.enabled = False
+		lottes.enabled = True
 
 		# Level
 		self.level = MeshObject(self.engine, 'engine', 'entities/models/misc.gltf', position=[0, 0, 0], rotation=[0, 0, 0], scale=0.2, collision_enabled=True)

@@ -6,6 +6,7 @@ from engine.effects.post_processing_stack import StackEffect
 HBAO_FRAG = """
 #version 330
 
+uniform sampler2D scene_tex;
 uniform sampler2D depth_tex;
 uniform sampler2D noise_tex;
 
@@ -26,13 +27,15 @@ float linearize_depth(float d) {
 }
 
 void main() {
+	vec3 scene_color = texture(scene_tex, texcoord).rgb;
 	float depth = texture(depth_tex, texcoord).r;
 
+	// Sky - no AO
 	if (depth >= 0.9999) {
 		if (debug_mode == 1) {
 			frag_color = vec4(1.0, 1.0, 1.0, 1.0);
 		} else {
-			frag_color = vec4(0.0, 0.0, 0.0, 0.0);
+			frag_color = vec4(scene_color, 1.0);
 		}
 		return;
 	}
@@ -87,8 +90,8 @@ void main() {
 	if (debug_mode == 1) {
 		frag_color = vec4(ao, ao, ao, 1.0);
 	} else {
-		float darkness = (1.0 - ao) * ao_intensity;
-		frag_color = vec4(0.0, 0.0, 0.0, darkness);
+		// Multiply scene color by AO
+		frag_color = vec4(scene_color * ao, 1.0);
 	}
 }
 """
@@ -97,7 +100,7 @@ class HBAO(StackEffect):
 	"""Screen-Space Ambient Occlusion"""
 
 	def __init__(self, radius=0.5, intensity=0.5, samples=4, bias=0.1, enabled=True, debug=False):
-		super().__init__("hbao", HBAO_FRAG, StackEffect.OVERLAY)
+		super().__init__("hbao", HBAO_FRAG, StackEffect.TRANSFORM)
 		self.radius = radius
 		self.intensity = intensity
 		self.samples = samples
