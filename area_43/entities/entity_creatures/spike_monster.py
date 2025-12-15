@@ -11,7 +11,7 @@ class SpikeMonster(CreatureEntity):
 	"""
 
 	def __init__(self, engine, position=None, rotation=None, scale=1.0,
-							 collision_enabled=False):
+							 collision_enabled=False, debug_mode=False):
 		super().__init__(
 			engine,
 			model_path='entities/models/spike_monster.gltf',
@@ -46,6 +46,11 @@ class SpikeMonster(CreatureEntity):
 
 		# Target (usually the player)
 		self.target = None
+
+		# Debug
+		self.debug_mode = debug_mode
+		self.creature_radius = 0.5
+		self._debug_circle = None
 
 		# Start in idle
 		self.set_state(self.STATE_IDLE, force=True)
@@ -196,8 +201,56 @@ class SpikeMonster(CreatureEntity):
 		"""Per-frame update"""
 		super().update(dt)
 
+		self._update_debug()
+
 		# Return to attack_idle after jab finishes
 		if self.state == self.STATE_ATTACK:
 			duration = self.get_duration('jab')
 			if duration > 0 and self.state_time >= duration:
 				self.set_state('attack_idle')
+
+	def _create_debug_circle(self):
+		from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexWriter
+		from panda3d.core import Geom, GeomLines, GeomNode, NodePath
+
+		segments = 32
+		vdata = GeomVertexData('circle', GeomVertexFormat.get_v3c4(), Geom.UHStatic)
+		vdata.setNumRows(segments)
+		vertex = GeomVertexWriter(vdata, 'vertex')
+		color = GeomVertexWriter(vdata, 'color')
+
+		for i in range(segments):
+			angle = (i / segments) * math.pi * 2
+			vertex.addData3(math.cos(angle) * self.creature_radius, math.sin(angle) * self.creature_radius, 0)
+			color.addData4(1, 1, 0, 1)
+
+		lines = GeomLines(Geom.UHStatic)
+		for i in range(segments):
+			lines.addVertices(i, (i + 1) % segments)
+			lines.closePrimitive()
+
+		geom = Geom(vdata)
+		geom.addPrimitive(lines)
+		node = GeomNode('radius')
+		node.addGeom(geom)
+		np = NodePath(node)
+		np.setLightOff()
+		np.setRenderModeThickness(2)
+		np.setBin('fixed', 100)
+		np.reparentTo(base.render)
+		return np
+
+	def _update_debug(self):
+		if self.debug_mode:
+			if not self._debug_circle:
+				self._debug_circle = self._create_debug_circle()
+			pos = self.node.getPos()
+			self._debug_circle.setPos(pos.x, pos.y, pos.z)
+		elif self._debug_circle:
+			self._debug_circle.removeNode()
+			self._debug_circle = None
+
+	def destroy(self):
+		if self._debug_circle:
+			self._debug_circle.removeNode()
+		super().destroy()

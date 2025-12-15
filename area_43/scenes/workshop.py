@@ -126,7 +126,7 @@ class WorkshopScene(Scene):
 			samples=16,
 			debug=False
 		))
-		hbao.enabled = True
+		hbao.enabled = False
 
 		# Add fogs (so post effects apply on top)
 
@@ -139,10 +139,10 @@ class WorkshopScene(Scene):
 		# ))
 
 		# Option 2: Distance fog (exponential, Silent Hill style)
-		# self.pp_stack.add_effect(DistanceFog(
-		# 	color=(1.0, 1.0, 1.0),
-		# 	density=0.3
-		# ))
+		self.pp_stack.add_effect(DistanceFog(
+			color=(1.0, 1.0, 1.0),
+			density=0.2
+		))
 
 		# Option 3: Multiple volume fogs
 		# self.pp_stack.add_effect(VolumeFog(
@@ -256,11 +256,15 @@ class WorkshopScene(Scene):
 			saturation=1.0,
 			vignette=0.0,
 		))
-		lottes.enabled = False
+		lottes.enabled = True
 
 	def setup_creatures(self):
-		self.creatures.add(SpikeMonster(self.engine, position=[3, 0, 0], scale=0.2))  # id 0
-		self.creatures.add(FaceSpider(self.engine, position=[5, -3, 0], scale=0.1))  # id 1
+		self.creatures.add(SpikeMonster(self.engine, position=[3, 0, 0], scale=0.2, debug_mode=False))  # id 0
+		self.creatures.add(FaceSpider(self.engine, position=[5, -3, 0], scale=0.1, debug_mode=False))  # id 1
+		self.creatures.add(FaceSpider(self.engine, position=[7, -2, 0], scale=0.1, debug_mode=False))  # id 2
+		self.creatures.add(FaceSpider(self.engine, position=[4, -5, 0], scale=0.1, debug_mode=False))  # id 3
+		self.creatures.add(FaceSpider(self.engine, position=[6, -6, 0], scale=0.1, debug_mode=False))  # id 4
+		self.creatures.add(FaceSpider(self.engine, position=[8, -4, 0], scale=0.1, debug_mode=False))  # id 5
 
 	def some_function(self):
 		print("interacted")

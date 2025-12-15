@@ -15,8 +15,7 @@ class FaceSpider(CreatureEntity):
 	- Pounce attack when close enough (leaps toward player)
 	"""
 
-	def __init__(self, engine, position=None, rotation=None, scale=1.0,
-							 collision_enabled=False):
+	def __init__(self, engine, position=None, rotation=None, scale=1.0, collision_enabled=False, debug_mode=False):
 		super().__init__(
 			engine,
 			model_path='entities/models/face_spider.gltf',
@@ -27,6 +26,9 @@ class FaceSpider(CreatureEntity):
 			mass=0.0
 		)
 
+		# Debug Mode
+		self.debug_mode = debug_mode
+
 		# Animation map
 		self.anim_map = {
 			self.STATE_IDLE: 'idle',
@@ -36,7 +38,7 @@ class FaceSpider(CreatureEntity):
 
 		# Animation blend time
 		self.blend_time = 0.2
-		self.walk_anim_speed = 1.5  # Speed multiplier for walk animation
+		self.walk_anim_speed = 1.0  # Speed multiplier for walk animation
 
 		# AI ranges
 		self.idle_radius = 10.0  # Start chasing at this distance
@@ -54,7 +56,7 @@ class FaceSpider(CreatureEntity):
 		self._is_wandering = False
 
 		# Movement
-		self.walk_speed = 5.0
+		self.walk_speed = 2.0
 		self.turn_speed = 10.0
 
 		# Pounce state
@@ -77,6 +79,10 @@ class FaceSpider(CreatureEntity):
 
 		# Target
 		self.target = None
+
+		# Creature radius
+		self.creature_radius = 0.3
+		self._debug_circle = None
 
 		# Start idle
 		self.set_state(self.STATE_IDLE, force=True)
@@ -138,8 +144,71 @@ class FaceSpider(CreatureEntity):
 				return True, hit_pos
 		return False, None
 
+	def _get_other_creatures(self):
+		"""Get list of other creatures in the scene"""
+		try:
+			scene = self.engine.scene_handler.current_scene
+			if hasattr(scene, 'creatures'):
+				return [c for c in scene.creatures if c is not None and c is not self]
+		except:
+			pass
+		return []
+
+	def _would_overlap_creature(self, pos):
+		"""Check if our radius at pos would overlap any other creature's radius"""
+		for creature in self._get_other_creatures():
+			if not creature.node:
+				continue
+			other_pos = creature.node.getPos()
+			other_radius = getattr(creature, 'creature_radius', 1.0)
+
+			dist = (Vec3(pos.x, pos.y, 0) - Vec3(other_pos.x, other_pos.y, 0)).length()
+			if dist < self.creature_radius + other_radius:
+				return True
+		return False
+
+	def _is_overlapping_creature(self):
+		"""Check if currently overlapping any creature"""
+		return self._would_overlap_creature(self.node.getPos())
+
+	def _find_non_overlapping_spot(self):
+		"""Find closest spot that doesn't overlap any creature"""
+		import random
+		my_pos = self.node.getPos()
+
+		# Try spots at increasing distances
+		for dist in [0.5, 1.0, 1.5, 2.0, 2.5]:
+			for _ in range(8):  # Try 8 directions
+				angle = random.uniform(0, math.pi * 2)
+				test_pos = Vec3(
+					my_pos.x + math.cos(angle) * dist,
+					my_pos.y + math.sin(angle) * dist,
+					my_pos.z
+				)
+
+				# Check ground
+				ground = self._raycast_down(test_pos)
+				if not ground:
+					continue
+
+				# Check no wall
+				direction = test_pos - my_pos
+				direction.z = 0
+				if direction.length() > 0.01:
+					direction.normalize()
+					hit_wall, _ = self._raycast_forward(my_pos, direction, dist)
+					if hit_wall:
+						continue
+
+				# Check no creature overlap
+				test_pos.z = ground.z + self._ground_offset
+				if not self._would_overlap_creature(test_pos):
+					return test_pos
+
+		return None
+
 	def _pick_wander_spot(self):
-		"""Pick a random spot within wander radius that has ground"""
+		"""Pick a random spot within wander radius that has ground and no creature overlap"""
 		import random
 		my_pos = self.node.getPos()
 
@@ -165,7 +234,51 @@ class FaceSpider(CreatureEntity):
 			if hit_wall:
 				continue
 
-			return Vec3(new_x, new_y, ground.z + self._ground_offset)
+			final_pos = Vec3(new_x, new_y, ground.z + self._ground_offset)
+
+			# Check no creature overlap at destination
+			if self._would_overlap_creature(final_pos):
+				continue
+
+			return final_pos
+
+		return None
+
+	def _pick_pounce_wander_spot(self):
+		"""Pick a shorter random spot for pounce wandering"""
+		import random
+		my_pos = self.node.getPos()
+
+		# Shorter distances for pounce wander
+		min_dist = 3.0
+		max_dist = 4.0
+
+		for _ in range(10):
+			angle = random.uniform(0, math.pi * 2)
+			dist = random.uniform(min_dist, max_dist)
+
+			new_x = my_pos.x + math.cos(angle) * dist
+			new_y = my_pos.y + math.sin(angle) * dist
+
+			test_pos = Vec3(new_x, new_y, my_pos.z)
+
+			ground = self._raycast_down(test_pos)
+			if not ground:
+				continue
+
+			direction = test_pos - my_pos
+			direction.z = 0
+			direction.normalize()
+			hit_wall, _ = self._raycast_forward(my_pos, direction, dist)
+			if hit_wall:
+				continue
+
+			final_pos = Vec3(new_x, new_y, ground.z + self._ground_offset)
+
+			if self._would_overlap_creature(final_pos):
+				continue
+
+			return final_pos
 
 		return None
 
@@ -299,6 +412,17 @@ class FaceSpider(CreatureEntity):
 		if target_pos is None:
 			return
 
+		self._start_pounce_to(target_pos)
+
+	def start_pounce_to(self, target_pos):
+		"""Begin a pounce to a specific position (for wander pouncing)"""
+		if self._pounce_timer > 0 or self._is_pouncing:
+			return
+
+		self._start_pounce_to(target_pos)
+
+	def _start_pounce_to(self, target_pos):
+		"""Internal: execute pounce to position"""
 		self._is_pouncing = True
 		self._pounce_airborne = False
 		self._pounce_falling = False
@@ -315,6 +439,10 @@ class FaceSpider(CreatureEntity):
 			travel = min(self.pounce_distance, dist)
 			self._pounce_target_pos = self._pounce_start_pos + direction * travel
 			self._pounce_target_pos.z = self._pounce_start_pos.z
+
+			# Face pounce direction instantly
+			target_heading = math.degrees(math.atan2(direction.x, -direction.y))
+			self.node.setH(target_heading)
 		else:
 			self._pounce_direction = Vec3(0, 1, 0)
 			self._pounce_target_pos = Vec3(self._pounce_start_pos)
@@ -386,7 +514,7 @@ class FaceSpider(CreatureEntity):
 		if hit_wall:
 			# Stop horizontal movement, start falling
 			self._pounce_falling = True
-			self._pounce_velocity_z = 0.0 # (default 2.0) Small upward bump like its bouncing off the wall slightly
+			self._pounce_velocity_z = 0.0  # (default 2.0) Small upward bump like its bouncing off the wall slightly
 			return
 
 		self.node.setPos(new_pos)
@@ -487,6 +615,18 @@ class FaceSpider(CreatureEntity):
 			my_pos.z += self._velocity_z * dt
 			self.node.setPos(my_pos)
 
+		# Always check for creature overlap - move away if overlapping
+		if self._is_overlapping_creature():
+			escape_spot = self._find_non_overlapping_spot()
+			if escape_spot:
+				self._wander_target = escape_spot
+				self._is_wandering = True
+				self._face_position(escape_spot, dt)
+				self._move_toward_position(escape_spot, dt)
+				if self.state != self.STATE_WALK:
+					self.set_state(self.STATE_WALK)
+				return
+
 		# Get distance to target
 		distance = self.get_distance_to_target()
 
@@ -540,6 +680,13 @@ class FaceSpider(CreatureEntity):
 				if self.state != self.STATE_IDLE:
 					self.set_state(self.STATE_IDLE)
 			else:
+				# 2 in 10 chance to pounce instead of walk
+				if self.can_pounce and random.randint(1, 10) <= 2 and self._pounce_timer <= 0:
+					spot = self._pick_pounce_wander_spot()
+					if spot:
+						self.start_pounce_to(spot)
+						return
+
 				# Pick new wander spot
 				spot = self._pick_wander_spot()
 				if spot:
@@ -557,6 +704,8 @@ class FaceSpider(CreatureEntity):
 		"""Per-frame update"""
 		super().update(dt)
 
+		self._update_debug()
+
 		# After pounce finishes, decide next state
 		if self.state == self.STATE_ATTACK and not self._is_pouncing:
 			duration = self.get_duration('pounce')
@@ -571,3 +720,49 @@ class FaceSpider(CreatureEntity):
 				else:
 					# Out of range - idle
 					self.set_state(self.STATE_IDLE)
+
+	def _create_debug_circle(self):
+		from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexWriter
+		from panda3d.core import Geom, GeomLines, GeomNode, NodePath
+
+		segments = 32
+		vdata = GeomVertexData('circle', GeomVertexFormat.get_v3c4(), Geom.UHStatic)
+		vdata.setNumRows(segments)
+		vertex = GeomVertexWriter(vdata, 'vertex')
+		color = GeomVertexWriter(vdata, 'color')
+
+		for i in range(segments):
+			angle = (i / segments) * math.pi * 2
+			vertex.addData3(math.cos(angle) * self.creature_radius, math.sin(angle) * self.creature_radius, 0)
+			color.addData4(1, 1, 0, 1)
+
+		lines = GeomLines(Geom.UHStatic)
+		for i in range(segments):
+			lines.addVertices(i, (i + 1) % segments)
+			lines.closePrimitive()
+
+		geom = Geom(vdata)
+		geom.addPrimitive(lines)
+		node = GeomNode('radius')
+		node.addGeom(geom)
+		np = NodePath(node)
+		np.setLightOff()
+		np.setRenderModeThickness(2)
+		np.setBin('fixed', 100)
+		np.reparentTo(base.render)
+		return np
+
+	def _update_debug(self):
+		if self.debug_mode:
+			if not self._debug_circle:
+				self._debug_circle = self._create_debug_circle()
+			pos = self.node.getPos()
+			self._debug_circle.setPos(pos.x, pos.y, pos.z)
+		elif self._debug_circle:
+			self._debug_circle.removeNode()
+			self._debug_circle = None
+
+	def destroy(self):
+		if self._debug_circle:
+			self._debug_circle.removeNode()
+		super().destroy()
