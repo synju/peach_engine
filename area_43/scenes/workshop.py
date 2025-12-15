@@ -135,13 +135,13 @@ class WorkshopScene(Scene):
 		# 	color=(1.0, 1.0, 1.0),
 		# 	start=0,
 		# 	end=10,
-		# 	density=10.0
+		# 	density=1.0
 		# ))
 
 		# Option 2: Distance fog (exponential, Silent Hill style)
 		# self.pp_stack.add_effect(DistanceFog(
 		# 	color=(1.0, 1.0, 1.0),
-		# 	density=0.1
+		# 	density=0.3
 		# ))
 
 		# Option 3: Multiple volume fogs
