@@ -52,6 +52,26 @@ class SoundPlayer:
 		except Exception as e:
 			print(f"Could not play effect {filepath}: {e}")
 
+	def play(self, name, filepath, loop=False, volume=None):
+		"""Load, store, and play a sound by name (can be stopped later)"""
+		if not self.sound_enabled:
+			return
+
+		# Stop existing sound with same name
+		if name in self.sounds:
+			self.sounds[name].stop()
+
+		try:
+			sound = base.loader.loadSfx(filepath)
+			if sound:
+				vol = volume if volume is not None else self.sfx_volume
+				sound.setVolume(vol)
+				sound.setLoop(loop)
+				sound.play()
+				self.sounds[name] = sound
+		except Exception as e:
+			print(f"Could not play {filepath}: {e}")
+
 	def stop_sound(self, name):
 		"""Stop a playing sound"""
 		if name in self.sounds:

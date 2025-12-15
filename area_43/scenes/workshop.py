@@ -79,6 +79,9 @@ class WorkshopScene(Scene):
 		# Lighting
 		self.setup_lights()
 
+		# Ambient sound
+		#self.engine.sound_player.play('wind', 'assets/sounds/wind_000.mp3', loop=True, volume=0.2)
+
 		# Player
 		self.player = Player(self.engine, self.engine.physics, position=(5.11, -2.12, 0.7), rotation=(0, 35), near_clip=0.01)
 		self.engine.renderer.set_camera(self.player.camera)
@@ -139,10 +142,10 @@ class WorkshopScene(Scene):
 		# ))
 
 		# Option 2: Distance fog (exponential, Silent Hill style)
-		self.pp_stack.add_effect(DistanceFog(
-			color=(1.0, 1.0, 1.0),
-			density=0.2
-		))
+		# self.pp_stack.add_effect(DistanceFog(
+		# 	color=(1.0, 1.0, 1.0),
+		# 	density=0.2
+		# ))
 
 		# Option 3: Multiple volume fogs
 		# self.pp_stack.add_effect(VolumeFog(
@@ -256,7 +259,7 @@ class WorkshopScene(Scene):
 			saturation=1.0,
 			vignette=0.0,
 		))
-		lottes.enabled = True
+		lottes.enabled = False
 
 	def setup_creatures(self):
 		self.creatures.add(SpikeMonster(self.engine, position=[3, 0, 0], scale=0.2, debug_mode=False))  # id 0
@@ -324,6 +327,10 @@ class WorkshopScene(Scene):
 		# Lighting
 		self.ambient_light.destroy()
 		self.sun_light.destroy()
+
+		# Sounds
+		# self.engine.sound_player.stop_sound('wind')
+		self.engine.sound_player.stop_all_sounds()
 
 		# Interactive Cube
 		self.cube.destroy()
