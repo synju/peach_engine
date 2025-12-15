@@ -1,3 +1,5 @@
+from area_43.creature_handler import CreatureHandler
+from area_43.entities.entity_creatures.face_spider import FaceSpider
 from area_43.entities.entity_creatures.spike_monster import SpikeMonster
 from engine.effects.fog_distance import DistanceFog
 from engine.effects.fog_linear import LinearFog
@@ -57,14 +59,12 @@ class WorkshopScene(Scene):
 		# Level
 		self.level = None
 
-		# Monsters
+		# Creatures
+		self.creatures = None
 		self.monster = None
 
 	def on_enter(self):
 		super().on_enter()
-
-		# Interactive Objects
-		self.interactive_objects = []
 
 		# Skybox
 		self.skybox = Skybox(self.engine, faces={
@@ -77,18 +77,37 @@ class WorkshopScene(Scene):
 		})
 
 		# Lighting
-		self.ambient_light = AmbientLight(self.engine, 'ambient', color=(0.3, 0.3, 0.3, 1), light_enabled=True)
-		self.sun_light = DirectionalLight(self.engine, 'sun', color=(1, 1, 1, 1), direction=(-1, 1, -1), position=(0, 0, 10), light_enabled=True)
-		self.bulb = PointLight(self.engine, 'sun', color=(1, 1, 1, 1), position=(5, -3, 3), light_enabled=False)
+		self.setup_lights()
 
 		# Player
 		self.player = Player(self.engine, self.engine.physics, position=(5.11, -2.12, 0.7), rotation=(0, 35), near_clip=0.01)
 		self.engine.renderer.set_camera(self.player.camera)
 
-		# Interactive Cube
+		# Interactive Objects
+		self.interactive_objects = []
 		self.cube = InteractiveCube(self.engine, position=[1, -0.75, 0.5], rotation=[0, 0, 0], scale=0.2, collision_enabled=True, debug_mode=False)
 		self.cube.set_interact(self.some_function)
 
+		# Setup Post Processing Stack
+		self.pp_stack = PostProcessingStack(self.engine)
+		self.setup_effects()
+
+		# Level
+		self.level = MeshObject(self.engine, 'engine', 'entities/models/misc.gltf', position=[0, 0, 0], rotation=[0, 0, 0], scale=0.2, collision_enabled=True)
+
+		# Creatures
+		self.creatures = CreatureHandler()
+		self.setup_creatures()
+
+		# Set target for all at once
+		self.creatures.set_target_all(self.player)
+
+	def setup_lights(self):
+		self.ambient_light = AmbientLight(self.engine, 'ambient', color=(0.3, 0.3, 0.3, 1), light_enabled=True)
+		self.sun_light = DirectionalLight(self.engine, 'sun', color=(1, 1, 1, 1), direction=(-1, 1, -1), position=(0, 0, 10), light_enabled=True)
+		self.bulb = PointLight(self.engine, 'sun', color=(1, 1, 1, 1), position=(5, -3, 3), light_enabled=False)
+
+	def setup_effects(self):
 		# Fog Volume (Quake 3 Arena)
 		# self.fog = FogVolume(self.engine, position=(4.4, -2.9, 1.9), size=(9.5, 7.5, 3.6), color=(1, 1, 1), density=0.1, debug_mode=False)
 
@@ -99,11 +118,6 @@ class WorkshopScene(Scene):
 		# self.fog = LinearDistanceFog(self.engine, color=(1.0, 1.0, 1.0), start=0, end=10, density=0.5)
 		# self.fog = LinearDistanceFog(self.engine, color=(0, 0, 0), start=0, end=5, density=1.25)
 		# self.fog = LinearDistanceFog(self.engine, color=(1.0, 0, 0), start=1, end=15, density=2.0)
-
-		# =============================================
-		# Post-Processing Stack (all effects unified)
-		# =============================================
-		self.pp_stack = PostProcessingStack(self.engine)
 
 		# HBAO - Ambient Occlusion (order 40)
 		hbao = self.pp_stack.add_effect(HBAO(
@@ -125,10 +139,10 @@ class WorkshopScene(Scene):
 		# ))
 
 		# Option 2: Distance fog (exponential, Silent Hill style)
-		self.pp_stack.add_effect(DistanceFog(
-			color=(1.0, 1.0, 1.0),
-			density=0.1
-		))
+		# self.pp_stack.add_effect(DistanceFog(
+		# 	color=(1.0, 1.0, 1.0),
+		# 	density=0.1
+		# ))
 
 		# Option 3: Multiple volume fogs
 		# self.pp_stack.add_effect(VolumeFog(
@@ -172,7 +186,7 @@ class WorkshopScene(Scene):
 			speed=1,
 			debug=False
 		))
-		grain.enabled = True
+		grain.enabled = False
 
 		# Vignette
 		vignette = self.pp_stack.add_effect(Vignette(
@@ -191,7 +205,7 @@ class WorkshopScene(Scene):
 			softness=0.1,  # Edge blur (0.1-0.5), higher = smoother, less flicker
 			direction=0,  # 0=horizontal, 1=vertical
 		))
-		horizontal_scanlines.enabled = True
+		horizontal_scanlines.enabled = False
 
 		vertical_scanlines = self.pp_stack.add_effect(Scanlines(
 			line_count=400.0,  # Number of lines
@@ -201,7 +215,7 @@ class WorkshopScene(Scene):
 			softness=0.1,  # Edge blur (0.1-0.5), higher = smoother, less flicker
 			direction=1,  # 0=horizontal, 1=vertical
 		))
-		vertical_scanlines.enabled = True
+		vertical_scanlines.enabled = False
 
 		shadow = self.pp_stack.add_effect(ShadowMask(
 			mask_type=0,  # Aperture grille (vertical RGB stripes)
@@ -239,19 +253,11 @@ class WorkshopScene(Scene):
 			saturation=1.0,
 			vignette=0.0,
 		))
-		lottes.enabled = True
+		lottes.enabled = False
 
-		# Level
-		self.level = MeshObject(self.engine, 'engine', 'entities/models/misc.gltf', position=[0, 0, 0], rotation=[0, 0, 0], scale=0.2, collision_enabled=True)
-
-		# Monsters
-		self.monster = SpikeMonster(
-			self.engine,
-			position=[3, 0, 0],
-			rotation=[0, 0, 0],
-			scale=0.2
-		)
-		self.monster.set_target(self.player)
+	def setup_creatures(self):
+		self.creatures.add(SpikeMonster(self.engine, position=[3, 0, 0], scale=0.2))  # id 0
+		self.creatures.add(FaceSpider(self.engine, position=[5, -3, 0], scale=0.1))  # id 1
 
 	def some_function(self):
 		print("interacted")
@@ -300,7 +306,7 @@ class WorkshopScene(Scene):
 		self.sun_light.update()
 
 		# Monsters
-		self.monster.update(dt)
+		self.creatures.update(dt)
 
 	def on_exit(self):
 		super().on_exit()
@@ -330,4 +336,4 @@ class WorkshopScene(Scene):
 		self.level.destroy()
 
 		# Monsters
-		self.monster.destroy()
+		self.creatures.destroy()

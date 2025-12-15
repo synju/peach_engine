@@ -145,8 +145,22 @@ class SpikeMonster(CreatureEntity):
 			self.set_state(self.STATE_ATTACK, blend_time=0.1)
 			self._attack_timer = self.attack_cooldown
 
+	def _should_ignore_player(self):
+		"""Check if player has creatures_ignore_player enabled"""
+		try:
+			player = self.engine.scene_handler.current_scene.player
+			return getattr(player, 'creatures_ignore_player', False)
+		except:
+			return False
+
 	def update_ai(self, dt):
 		"""AI behavior based on distance to target"""
+		# Check if player wants to be ignored
+		if self._should_ignore_player():
+			if self.state != self.STATE_IDLE:
+				self.set_state(self.STATE_IDLE)
+			return
+
 		# Update cooldown
 		if self._attack_timer > 0:
 			self._attack_timer -= dt

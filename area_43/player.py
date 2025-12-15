@@ -84,6 +84,9 @@ class Player:
 		self.noclip_speed = 5.0
 		self.noclip_fast_speed = 15.0
 
+		# Creature Interaction
+		self.creatures_ignore_player = False
+
 		# Built-in camera
 		self.camera = PlayerCamera(engine, near_clip, far_clip)
 
@@ -690,8 +693,7 @@ class Player:
 
 		self.is_sprinting = (
 			input_handler.is_key_pressed('shift') and
-			not self.is_crouching and
-			input_handler.is_key_pressed('w')
+			not self.is_crouching
 		)
 
 		# Jump
@@ -713,6 +715,10 @@ class Player:
 		if input_handler.is_key_down('v'):
 			self.toggle_noclip(args=None)
 			self.engine.scene_handler.console.print(f"Noclip: {'ON' if self.noclip_mode else 'OFF'}")
+
+		if input_handler.is_key_down('c'):
+			self.creatures_ignore_player = not self.creatures_ignore_player
+			self.engine.scene_handler.console.print(f"Creatures ignore player: {'ON' if self.creatures_ignore_player else 'OFF'}")
 
 	def update(self, dt):
 		if not self.looking:
