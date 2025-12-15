@@ -197,6 +197,7 @@ class WorkshopScene(Scene):
 		))
 		vignette.enabled = False
 
+		# Horizontal Scanlines
 		horizontal_scanlines = self.pp_stack.add_effect(Scanlines(
 			line_count=125.0,  # Number of lines
 			thickness=0.5,  # 0-1, how thick the dark lines are
@@ -207,6 +208,7 @@ class WorkshopScene(Scene):
 		))
 		horizontal_scanlines.enabled = False
 
+		# Vertical Scanlines
 		vertical_scanlines = self.pp_stack.add_effect(Scanlines(
 			line_count=400.0,  # Number of lines
 			thickness=0.3,  # 0-1, how thick the dark lines are
@@ -217,6 +219,7 @@ class WorkshopScene(Scene):
 		))
 		vertical_scanlines.enabled = False
 
+		# Shadow Mask
 		shadow = self.pp_stack.add_effect(ShadowMask(
 			mask_type=0,  # Aperture grille (vertical RGB stripes)
 			line_density=960.0,  # 640 RGB triplets across screen (like 640px wide CRT)
