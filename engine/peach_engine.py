@@ -3,6 +3,8 @@ from panda3d.bullet import BulletWorld
 from panda3d.core import loadPrcFileData
 import sys
 
+from engine.gui.gui_handler import GUIHandler
+
 # Configure Panda3D before creating ShowBase
 loadPrcFileData('', 'window-title Peach Engine')
 
@@ -34,6 +36,7 @@ class PeachEngine(ShowBase):
 		self.sound_player = SoundPlayer()
 		self.utils = Utils(self)
 		self.scene_handler = SceneHandler(self)
+		self.gui_handler = GUIHandler(self)
 
 		# Give scene_handler reference to renderer
 		self.scene_handler.renderer = self.renderer

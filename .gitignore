@@ -16,3 +16,4 @@ area_43/entities/entity_objects/__pycache__/
 engine/effects/__pycache__/
 engine/fogs/__pycache__/
 area_43/entities/entity_creatures/__pycache__/
+*.pyc

@@ -1,10 +1,15 @@
 import math
+import os
 
 from direct.showbase.ShowBase import ShowBase
 from panda3d.bullet import BulletCapsuleShape, BulletGhostNode, BulletRigidBodyNode, ZUp
 from panda3d.core import NodePath, Point3, Vec3
 
+from area_43.gui_text import GUIText
 from area_43.player_camera import PlayerCamera
+from engine.gui.gui_container import GUIContainer
+
+_DIR = os.path.dirname(__file__)
 
 base: ShowBase
 
@@ -87,6 +92,16 @@ class Player:
 		# Creature Interaction
 		self.creatures_ignore_player = False
 
+		# Stats
+		self.health = 100
+		self.max_health = 100
+		self.armor = 100
+		self.max_armor = 100
+		self.hunger = 100
+		self.max_hunger = 100
+		self.thirst = 100
+		self.max_thirst = 100
+
 		# Built-in camera
 		self.camera = PlayerCamera(engine, near_clip, far_clip)
 
@@ -98,6 +113,9 @@ class Player:
 
 		# Register console commands
 		self.engine.scene_handler.console.register_command('noclip', self.toggle_noclip, "Toggle noclip mode")
+
+		# HUD
+		self._setup_hud()
 
 	def _setup_collider(self):
 		"""Create capsule collider for player"""
@@ -111,6 +129,130 @@ class Player:
 		self.body_np.setPos(0, 0, self.height / 2)
 
 		self.physics.attachRigidBody(self.body)
+
+	def _setup_hud(self):
+		"""Setup player HUD"""
+		# HUD scaling
+		self.hud_icon_scale = 0.03
+		self.hud_text_scale = 0.07
+		self.hud_text_spacing = 0.7
+		self.hud_offset = (0.04, 0.04)
+		self.hud_row_height = 0.06
+
+		# Health HUD container
+		self.hud_health = GUIContainer(
+			self.engine.gui_handler.bottom_left,
+			align='bottom_left',
+			offset=self.hud_offset
+		)
+
+		# Health icon
+		self.hud_health.add_image(
+			'icon',
+			'assets/gui/health_icon.png',
+			x=0,
+			y=0,
+			scale=self.hud_icon_scale
+		)
+
+		# Health text
+		self.hud_health_text = GUIText(
+			os.path.join(_DIR, 'assets/fonts/quantico/quantico.png'),
+			os.path.join(_DIR, 'assets/fonts/quantico/font_grid.json'),
+			scale=self.hud_text_scale,
+			spacing=self.hud_text_spacing
+		)
+		self.hud_health_text.reparentTo(self.hud_health.root)
+		self.hud_health_text.setPos(self.hud_icon_scale + 0.02, 0, 0)
+		self.hud_health_text.set_text(str(self.health))
+
+		# Armor HUD container (above health)
+		self.hud_armor = GUIContainer(
+			self.engine.gui_handler.bottom_left,
+			align='bottom_left',
+			offset=(self.hud_offset[0], self.hud_offset[1] + self.hud_row_height)
+		)
+
+		# Armor icon
+		self.hud_armor.add_image(
+			'icon',
+			'assets/gui/armour_icon.png',
+			x=0,
+			y=0,
+			scale=self.hud_icon_scale
+		)
+
+		# Armor text
+		self.hud_armor_text = GUIText(
+			os.path.join(_DIR, 'assets/fonts/quantico/quantico.png'),
+			os.path.join(_DIR, 'assets/fonts/quantico/font_grid.json'),
+			scale=self.hud_text_scale,
+			spacing=self.hud_text_spacing
+		)
+		self.hud_armor_text.reparentTo(self.hud_armor.root)
+		self.hud_armor_text.setPos(self.hud_icon_scale + 0.02, 0, 0)
+		self.hud_armor_text.set_text(str(self.armor))
+
+		# Hunger HUD container (above armor)
+		self.hud_hunger = GUIContainer(
+			self.engine.gui_handler.bottom_left,
+			align='bottom_left',
+			offset=(self.hud_offset[0], self.hud_offset[1] + self.hud_row_height * 2)
+		)
+
+		# Hunger icon
+		self.hud_hunger.add_image(
+			'icon',
+			'assets/gui/hunger_icon.png',
+			x=0,
+			y=0,
+			scale=self.hud_icon_scale
+		)
+
+		# Hunger text
+		self.hud_hunger_text = GUIText(
+			os.path.join(_DIR, 'assets/fonts/quantico/quantico.png'),
+			os.path.join(_DIR, 'assets/fonts/quantico/font_grid.json'),
+			scale=self.hud_text_scale,
+			spacing=self.hud_text_spacing
+		)
+		self.hud_hunger_text.reparentTo(self.hud_hunger.root)
+		self.hud_hunger_text.setPos(self.hud_icon_scale + 0.02, 0, 0)
+		self.hud_hunger_text.set_text(str(self.hunger))
+
+		# Thirst HUD container (above hunger)
+		self.hud_thirst = GUIContainer(
+			self.engine.gui_handler.bottom_left,
+			align='bottom_left',
+			offset=(self.hud_offset[0], self.hud_offset[1] + self.hud_row_height * 3)
+		)
+
+		# Thirst icon
+		self.hud_thirst.add_image(
+			'icon',
+			'assets/gui/thirst_icon.png',
+			x=0,
+			y=0,
+			scale=self.hud_icon_scale
+		)
+
+		# Thirst text
+		self.hud_thirst_text = GUIText(
+			os.path.join(_DIR, 'assets/fonts/quantico/quantico.png'),
+			os.path.join(_DIR, 'assets/fonts/quantico/font_grid.json'),
+			scale=self.hud_text_scale,
+			spacing=self.hud_text_spacing
+		)
+		self.hud_thirst_text.reparentTo(self.hud_thirst.root)
+		self.hud_thirst_text.setPos(self.hud_icon_scale + 0.02, 0, 0)
+		self.hud_thirst_text.set_text(str(self.thirst))
+
+	def _update_hud(self):
+		"""Update HUD values"""
+		self.hud_health_text.set_text(str(self.health))
+		self.hud_armor_text.set_text(str(self.armor))
+		self.hud_hunger_text.set_text(str(self.hunger))
+		self.hud_thirst_text.set_text(str(self.thirst))
 
 	def _clip_velocity(self, velocity, normal):
 		"""Remove velocity component going into surface (Quake style)"""
@@ -883,3 +1025,21 @@ class Player:
 		if self.node:
 			self.node.removeNode()
 			self.node = None
+
+		# HUD cleanup
+		if hasattr(self, 'hud_health_text'):
+			self.hud_health_text.destroy()
+		if hasattr(self, 'hud_health'):
+			self.hud_health.destroy()
+		if hasattr(self, 'hud_armor_text'):
+			self.hud_armor_text.destroy()
+		if hasattr(self, 'hud_armor'):
+			self.hud_armor.destroy()
+		if hasattr(self, 'hud_hunger_text'):
+			self.hud_hunger_text.destroy()
+		if hasattr(self, 'hud_hunger'):
+			self.hud_hunger.destroy()
+		if hasattr(self, 'hud_thirst_text'):
+			self.hud_thirst_text.destroy()
+		if hasattr(self, 'hud_thirst'):
+			self.hud_thirst.destroy()
