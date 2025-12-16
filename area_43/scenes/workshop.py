@@ -88,7 +88,7 @@ class WorkshopScene(Scene):
 		#self.engine.sound_player.play('wind', 'assets/sounds/wind_000.mp3', loop=True, volume=0.2)
 
 		# Player
-		self.player = Player(self.engine, self.engine.physics, position=(5.11, -2.12, 0.7), rotation=(0, 35), near_clip=0.01, debug_mode=True)
+		self.player = Player(self.engine, self.engine.physics, position=(5.11, -2.12, 0.7), rotation=(0, 35), near_clip=0.01, debug_mode=False)
 		self.engine.renderer.set_camera(self.player.camera)
 
 		# Create free camera
@@ -272,7 +272,7 @@ class WorkshopScene(Scene):
 
 	def setup_creatures(self):
 		self.creatures.add(SpikeMonster(self.engine, position=[3, 0, 0], scale=0.2, debug_mode=False))  # id 0
-		self.creatures.add(FaceSpider(self.engine, position=[5, -3, 0], scale=0.1, debug_mode=True))  # id 1
+		self.creatures.add(FaceSpider(self.engine, position=[5, -3, 0], scale=0.1, debug_mode=False))  # id 1
 
 	def some_function(self):
 		print("interacted")

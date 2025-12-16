@@ -1,5 +1,6 @@
 import math
 from area_43.entities.entity_creatures.creature_entity import CreatureEntity
+from engine.mesh_object import MeshObject
 from panda3d.core import Vec3
 from direct.showbase.ShowBase import ShowBase
 
@@ -10,8 +11,7 @@ class SpikeMonster(CreatureEntity):
 	Spike Monster enemy with idle and jab animations.
 	"""
 
-	def __init__(self, engine, position=None, rotation=None, scale=1.0,
-							 collision_enabled=False, debug_mode=False):
+	def __init__(self, engine, position=None, rotation=None, scale=1.0, collision_enabled=False, debug_mode=False):
 		super().__init__(
 			engine,
 			model_path='entities/models/spike_monster.gltf',
@@ -21,6 +21,15 @@ class SpikeMonster(CreatureEntity):
 			collision_enabled=collision_enabled,
 			mass=0.0
 		)
+
+		# Load stationary base mesh (not parented to node, syncs position only)
+		self.base_mesh = MeshObject(
+			engine,
+			name='spike_monster_base',
+			model_path='entities/models/spike_monster_base.gltf',
+			position=position
+		)
+		self.base_mesh.scale = 0.2
 
 		# Map states to actual animation names in the GLTF
 		self.anim_map = {
@@ -90,7 +99,7 @@ class SpikeMonster(CreatureEntity):
 		return None
 
 	def face_target(self, dt):
-		"""Orient to face the target smoothly"""
+		"""Orient to face the target smoothly (rotates actor only, not base)"""
 		target_pos = self._get_target_position()
 		if target_pos is None:
 			return
@@ -106,8 +115,8 @@ class SpikeMonster(CreatureEntity):
 		# Calculate target heading (flipped for Blender model orientation)
 		target_heading = math.degrees(math.atan2(direction.x, -direction.y))
 
-		# Get current heading
-		current_heading = self.node.getH()
+		# Get current heading (from actor, not node)
+		current_heading = self.actor.getH()
 
 		# Find shortest rotation direction
 		diff = target_heading - current_heading
@@ -116,12 +125,12 @@ class SpikeMonster(CreatureEntity):
 		while diff < -180:
 			diff += 360
 
-		# Smooth rotation
+		# Smooth rotation (rotate actor only)
 		rotation_amount = self.turn_speed * dt * 60  # Scale by dt
 		if abs(diff) < rotation_amount:
-			self.node.setH(target_heading)
+			self.actor.setH(target_heading)
 		else:
-			self.node.setH(current_heading + rotation_amount * (1 if diff > 0 else -1))
+			self.actor.setH(current_heading + rotation_amount * (1 if diff > 0 else -1))
 
 	def set_state(self, new_state, force=False, blend_time=None):
 		"""Change state and play animation"""
@@ -201,6 +210,11 @@ class SpikeMonster(CreatureEntity):
 		"""Per-frame update"""
 		super().update(dt)
 
+		# Sync base mesh position (not rotation)
+		if self.base_mesh:
+			pos = self.node.getPos()
+			self.base_mesh.position = [pos.x, pos.y, pos.z]
+
 		self._update_debug()
 
 		# Return to attack_idle after jab finishes
@@ -253,4 +267,6 @@ class SpikeMonster(CreatureEntity):
 	def destroy(self):
 		if self._debug_circle:
 			self._debug_circle.removeNode()
+		if self.base_mesh:
+			self.base_mesh.destroy()
 		super().destroy()
