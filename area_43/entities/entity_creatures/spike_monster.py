@@ -49,9 +49,10 @@ class SpikeMonster(CreatureEntity):
 		# AI ranges
 		self.orient_range = 4.5  # Start facing player at this distance
 		self.attack_range = 1.8  # Attack when within this distance
-		self.attack_cooldown = 0.2  # Seconds between attacks
+		self.attack_cooldown = 3.0  # Seconds between attacks
 		self._attack_timer = 0.0
 		self.turn_speed = 5.0  # Rotation speed (higher = faster turn)
+		self.attack_alignment = 20  # Must be within this many degrees to attack
 
 		# Target (usually the player)
 		self.target = None
@@ -61,8 +62,46 @@ class SpikeMonster(CreatureEntity):
 		self.creature_radius = 0.5
 		self._debug_circle = None
 
+		# Expose damage bone for tracking spike tip
+		self._damage_joint = self.actor.exposeJoint(None, "modelRoot", "Spike_Damage_Point")
+		self.damage_radius = 0.01
+		self.damage_sphere_offset = Vec3(0.0, 0.0, -0.05)  # Offset from bone position
+		self._has_hit_player = False  # Prevent multiple hits per attack
+		self._debug_damage_sphere = None
+
+		# Hitboxes
+		self.setup_hitboxes()
+
 		# Start in idle
 		self.set_state(self.STATE_IDLE, force=True)
+
+	def setup_hitboxes(self):
+		# Find and store hitbox meshes from model
+		self.hitboxes = []
+		hitbox_nodes = self.actor.findAllMatches("**/hitbox_*")
+
+		for i in range(hitbox_nodes.getNumPaths()):
+			hb = hitbox_nodes.getPath(i)
+			name = hb.getName()
+
+			# Damage multiplier based on name
+			if "tip" in name:
+				multiplier = 2.0
+			elif "head" in name:
+				multiplier = 1.5
+			else:
+				multiplier = 1.0
+
+			self.hitboxes.append({
+				"name": name,
+				"node": hb,
+				"multiplier": multiplier
+			})
+
+			# Hide the hitbox mesh (invisible but still trackable)
+			hb.hide()
+
+		self._debug_hitbox_visuals = []
 
 	def set_target(self, target):
 		"""Set the target to track (e.g., player)"""
@@ -132,6 +171,30 @@ class SpikeMonster(CreatureEntity):
 		else:
 			self.actor.setH(current_heading + rotation_amount * (1 if diff > 0 else -1))
 
+	def is_facing_target(self):
+		"""Check if facing target within attack_alignment degrees"""
+		target_pos = self._get_target_position()
+		if target_pos is None:
+			return False
+
+		my_pos = self.node.getPos()
+		direction = target_pos - my_pos
+		direction.z = 0
+
+		if direction.length() < 0.01:
+			return True
+
+		target_heading = math.degrees(math.atan2(direction.x, -direction.y))
+		current_heading = self.actor.getH()
+
+		diff = target_heading - current_heading
+		while diff > 180:
+			diff -= 360
+		while diff < -180:
+			diff += 360
+
+		return abs(diff) <= self.attack_alignment
+
 	def set_state(self, new_state, force=False, blend_time=None):
 		"""Change state and play animation"""
 		if new_state == self.state and not force:
@@ -156,6 +219,7 @@ class SpikeMonster(CreatureEntity):
 	def attack(self):
 		"""Perform jab attack"""
 		if self._attack_timer <= 0 and self.state != self.STATE_ATTACK:
+			self._has_hit_player = False  # Reset hit flag for new attack
 			self.set_state(self.STATE_ATTACK, blend_time=0.1)
 			self._attack_timer = self.attack_cooldown
 
@@ -191,9 +255,9 @@ class SpikeMonster(CreatureEntity):
 		# Inside tracking range - face target
 		self.face_target(dt)
 
-		# Inside attack range - try to attack
+		# Inside attack range - try to attack if facing target
 		if distance <= self.attack_range:
-			if self._attack_timer <= 0 and self.state != self.STATE_ATTACK:
+			if self._attack_timer <= 0 and self.state != self.STATE_ATTACK and self.is_facing_target():
 				self.attack()
 		else:
 			# Inside tracking but outside attack range - attack_idle
@@ -203,8 +267,88 @@ class SpikeMonster(CreatureEntity):
 	def on_state_enter(self, state):
 		"""Handle state-specific setup"""
 		if state == self.STATE_ATTACK:
-			# Could trigger damage/hitbox check here
-			pass
+			self._has_hit_player = False
+
+	def get_damage_sphere_pos(self):
+		"""Get world position of damage sphere (spike tip + offset)"""
+		if self._damage_joint:
+			# Get bone position and apply local offset
+			joint_pos = self._damage_joint.getPos(base.render)
+			# Transform offset by bone's rotation
+			offset_world = base.render.getRelativeVector(self._damage_joint, self.damage_sphere_offset)
+			return joint_pos + offset_world
+		return self.node.getPos()
+
+	def check_hit(self, attack_pos, attack_radius=0.1):
+		"""Check if an attack hits any hitbox mesh"""
+		for hb in self.hitboxes:
+			node = hb["node"]
+
+			# Get tight bounds in world space
+			bounds = node.getTightBounds(base.render)
+			if not bounds:
+				continue
+
+			min_pt, max_pt = bounds
+			center = (min_pt + max_pt) / 2
+
+			# Approximate as sphere using half the diagonal
+			size = max_pt - min_pt
+			approx_radius = size.length() / 2
+
+			# Check sphere intersection
+			dist = (attack_pos - center).length()
+			if dist < (approx_radius + attack_radius):
+				return {"name": hb["name"], "multiplier": hb["multiplier"], "pos": center}
+
+		return None
+
+	def take_damage(self, amount, multiplier=1.0):
+		"""Take damage with optional multiplier"""
+		damage = amount * multiplier
+		self.health -= damage
+		if self.health <= 0:
+			self.health = 0
+			self.on_death()
+		return damage
+
+	def on_death(self):
+		"""Called when health reaches 0"""
+		pass
+
+	def _intersects_player(self):
+		"""Check if damage sphere intersects player's capsule"""
+		if not self.target:
+			return False
+
+		target_pos = self._get_target_position()
+		if target_pos is None:
+			return False
+
+		sphere_pos = self.get_damage_sphere_pos()
+
+		# Player capsule dimensions
+		player_radius = getattr(self.target, 'radius', 0.3)
+		player_height = getattr(self.target, '_current_height', 1.8)
+
+		# Capsule axis from bottom to top
+		capsule_bottom = Vec3(target_pos.x, target_pos.y, target_pos.z + player_radius)
+		capsule_top = Vec3(target_pos.x, target_pos.y, target_pos.z + player_height - player_radius)
+
+		# Find closest point on capsule axis to sphere center
+		axis = capsule_top - capsule_bottom
+		axis_len = axis.length()
+		if axis_len < 0.01:
+			closest = capsule_bottom
+		else:
+			axis_norm = axis / axis_len
+			t = (sphere_pos - capsule_bottom).dot(axis_norm)
+			t = max(0, min(axis_len, t))
+			closest = capsule_bottom + axis_norm * t
+
+		# Check distance
+		dist = (sphere_pos - closest).length()
+		return dist < (player_radius + self.damage_radius)
 
 	def update(self, dt):
 		"""Per-frame update"""
@@ -214,6 +358,13 @@ class SpikeMonster(CreatureEntity):
 		if self.base_mesh:
 			pos = self.node.getPos()
 			self.base_mesh.position = [pos.x, pos.y, pos.z]
+
+		# Check for damage during attack
+		if self.state == self.STATE_ATTACK and not self._has_hit_player:
+			if self._intersects_player():
+				self._has_hit_player = True
+				if hasattr(self.target, 'take_damage'):
+					self.target.take_damage(self.attack_damage)
 
 		self._update_debug()
 
@@ -254,19 +405,89 @@ class SpikeMonster(CreatureEntity):
 		np.reparentTo(base.render)
 		return np
 
+	def _create_debug_damage_sphere(self):
+		"""Create wireframe sphere for damage detection visualization"""
+		from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexWriter
+		from panda3d.core import Geom, GeomLines, GeomNode, NodePath
+
+		segments = 16
+		radius = self.damage_radius
+
+		vdata = GeomVertexData('sphere', GeomVertexFormat.get_v3c4(), Geom.UHStatic)
+		vdata.setNumRows(segments * 3)
+		vertex = GeomVertexWriter(vdata, 'vertex')
+		color = GeomVertexWriter(vdata, 'color')
+
+		# XY circle (horizontal)
+		for i in range(segments):
+			angle = (i / segments) * math.pi * 2
+			vertex.addData3(math.cos(angle) * radius, math.sin(angle) * radius, 0)
+			color.addData4(1, 0, 0, 1)  # Red
+
+		# XZ circle (vertical, front)
+		for i in range(segments):
+			angle = (i / segments) * math.pi * 2
+			vertex.addData3(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+			color.addData4(1, 0, 0, 1)
+
+		# YZ circle (vertical, side)
+		for i in range(segments):
+			angle = (i / segments) * math.pi * 2
+			vertex.addData3(0, math.cos(angle) * radius, math.sin(angle) * radius)
+			color.addData4(1, 0, 0, 1)
+
+		lines = GeomLines(Geom.UHStatic)
+		for circle in range(3):
+			offset = circle * segments
+			for i in range(segments):
+				lines.addVertices(offset + i, offset + (i + 1) % segments)
+				lines.closePrimitive()
+
+		geom = Geom(vdata)
+		geom.addPrimitive(lines)
+		node = GeomNode('damage_sphere')
+		node.addGeom(geom)
+		np = NodePath(node)
+		np.setLightOff()
+		np.setRenderModeThickness(2)
+		np.setBin('fixed', 100)
+		np.setDepthTest(False)
+		np.setDepthWrite(False)
+		np.reparentTo(base.render)
+		return np
+
 	def _update_debug(self):
 		if self.debug_mode:
 			if not self._debug_circle:
 				self._debug_circle = self._create_debug_circle()
 			pos = self.node.getPos()
 			self._debug_circle.setPos(pos.x, pos.y, pos.z)
-		elif self._debug_circle:
-			self._debug_circle.removeNode()
-			self._debug_circle = None
+
+			# Damage sphere follows spike tip
+			if not self._debug_damage_sphere:
+				self._debug_damage_sphere = self._create_debug_damage_sphere()
+			sphere_pos = self.get_damage_sphere_pos()
+			self._debug_damage_sphere.setPos(sphere_pos)
+
+			# Show hitbox meshes in debug mode
+			for hb in self.hitboxes:
+				hb["node"].show()
+		else:
+			if self._debug_circle:
+				self._debug_circle.removeNode()
+				self._debug_circle = None
+			if self._debug_damage_sphere:
+				self._debug_damage_sphere.removeNode()
+				self._debug_damage_sphere = None
+			# Hide hitbox meshes
+			for hb in self.hitboxes:
+				hb["node"].hide()
 
 	def destroy(self):
 		if self._debug_circle:
 			self._debug_circle.removeNode()
+		if self._debug_damage_sphere:
+			self._debug_damage_sphere.removeNode()
 		if self.base_mesh:
 			self.base_mesh.destroy()
 		super().destroy()
