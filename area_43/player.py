@@ -16,14 +16,15 @@ base: ShowBase
 class Player:
 	"""First-person player controller with built-in camera and physics"""
 
-	def __init__(self, engine, physics_world, position=(0, 0, 0), rotation=(0, 0), near_clip=0.1, far_clip=10000):
+	def __init__(self, engine, physics_world, position=(0, 0, 0), rotation=(0, 0), near_clip=0.1, far_clip=10000, debug_mode=False):
 		self.engine = engine
 		self.physics = physics_world
 
 		# Debug
-		self.debug_mode = False
+		self.debug_mode = debug_mode
 		self._debug_ray_line = None
 		self._debug_ray_ball = None
+		self._debug_hitbox = None
 
 		# Interaction Distance
 		self.interact_distance = 1.1
@@ -253,6 +254,21 @@ class Player:
 		self.hud_armor_text.set_text(str(self.armor))
 		self.hud_hunger_text.set_text(str(self.hunger))
 		self.hud_thirst_text.set_text(str(self.thirst))
+
+	def take_damage(self, amount):
+		"""Take damage, applying to armor first then health"""
+		# Armor absorbs damage first
+		if self.armor > 0:
+			armor_damage = min(self.armor, amount)
+			self.armor -= armor_damage
+			amount -= armor_damage
+
+		# Remaining damage goes to health
+		self.health -= amount
+		if self.health < 0:
+			self.health = 0
+
+		self._update_hud()
 
 	def _clip_velocity(self, velocity, normal):
 		"""Remove velocity component going into surface (Quake style)"""
@@ -646,6 +662,64 @@ class Player:
 			self._debug_ray_ball.setDepthWrite(False)
 			self._debug_ray_ball.setLightOff()
 
+	def _create_debug_hitbox(self):
+		"""Create capsule outline for player hitbox visualization"""
+		from panda3d.core import LineSegs
+
+		lines = LineSegs()
+		lines.setColor(0, 1, 1, 1)  # Cyan
+		lines.setThickness(2)
+
+		radius = self.radius
+		height = self._current_height
+		segments = 16
+
+		# Bottom circle (at ground level)
+		for i in range(segments + 1):
+			angle = (i / segments) * math.pi * 2
+			x = math.cos(angle) * radius
+			y = math.sin(angle) * radius
+			if i == 0:
+				lines.moveTo(x, y, 0)
+			else:
+				lines.drawTo(x, y, 0)
+
+		# Top circle
+		for i in range(segments + 1):
+			angle = (i / segments) * math.pi * 2
+			x = math.cos(angle) * radius
+			y = math.sin(angle) * radius
+			if i == 0:
+				lines.moveTo(x, y, height)
+			else:
+				lines.drawTo(x, y, height)
+
+		# Vertical lines
+		for i in range(4):
+			angle = (i / 4) * math.pi * 2
+			x = math.cos(angle) * radius
+			y = math.sin(angle) * radius
+			lines.moveTo(x, y, 0)
+			lines.drawTo(x, y, height)
+
+		node = lines.create()
+		np = base.render.attachNewNode(node)
+		np.setBin('fixed', 100)
+		np.setDepthTest(False)
+		np.setDepthWrite(False)
+		np.setLightOff()
+		return np
+
+	def _update_debug_hitbox(self):
+		"""Update debug hitbox position and visibility"""
+		if self.debug_mode:
+			if not self._debug_hitbox:
+				self._debug_hitbox = self._create_debug_hitbox()
+			self._debug_hitbox.setPos(self._position[0], self._position[1], self._position[2])
+		elif self._debug_hitbox:
+			self._debug_hitbox.removeNode()
+			self._debug_hitbox = None
+
 	def get_look_hit(self, distance=5.0):
 		"""Raycast from eye in look direction, return hit node or None"""
 		heading_rad = math.radians(self._heading)
@@ -1009,6 +1083,7 @@ class Player:
 
 		# Debug visualization
 		self._update_debug_ray()
+		self._update_debug_hitbox()
 
 		# Update Camera
 		self._update_camera()
@@ -1018,6 +1093,8 @@ class Player:
 			self._debug_ray_line.removeNode()
 		if self._debug_ray_ball:
 			self._debug_ray_ball.removeNode()
+		if self._debug_hitbox:
+			self._debug_hitbox.removeNode()
 		if self.body:
 			# Only remove if attached (not in noclip mode)
 			if not self.noclip_mode:

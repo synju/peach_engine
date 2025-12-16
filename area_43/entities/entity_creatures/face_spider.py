@@ -71,6 +71,18 @@ class FaceSpider(CreatureEntity):
 		self._pounce_falling = False  # True when hit wall and falling
 		self._pounce_velocity_z = 0.0  # Vertical velocity when falling
 		self._pounce_frame = 15  # Frame to hold while airborne
+		self._pounce_is_attack = False  # True if pounce is an attack (vs wander pounce)
+
+		# Pounce damage
+		self.pounce_damage = 10
+		self._pounce_hit_player = False
+		self._pounce_backtrack_distance = 1.5  # How far to back up after hitting player
+		self._pounce_backtrack_speed = 2.0  # Speed to walk backwards
+
+		# Backtracking state
+		self._is_backtracking = False
+		self._backtrack_target = None
+		self._backtrack_direction = None
 
 		# Physics
 		self._gravity = 20.0
@@ -82,7 +94,10 @@ class FaceSpider(CreatureEntity):
 
 		# Creature radius
 		self.creature_radius = 0.3
+		self.hit_sphere_radius = 0.2  # Radius for hit detection sphere
+		self.hit_sphere_vertical_offset = -0.1  # Offset for hit sphere position
 		self._debug_circle = None
+		self._debug_sphere = None
 
 		# Start idle
 		self.set_state(self.STATE_IDLE, force=True)
@@ -102,6 +117,53 @@ class FaceSpider(CreatureEntity):
 		if hasattr(self.target, 'getPos'):
 			return self.target.getPos()
 		return None
+
+	def _get_target_head_position(self):
+		"""Get target head position for pounce aiming"""
+		base_pos = self._get_target_position()
+		if base_pos is None:
+			return None
+		# Aim at head height (player height - some offset)
+		head_height = getattr(self.target, 'height', 1.8) - 0.2
+		return Vec3(base_pos.x, base_pos.y, base_pos.z + head_height)
+
+	def _intersects_player(self):
+		"""Check if spider's body intersects player's capsule"""
+		if not self.target:
+			return False
+
+		target_pos = self._get_target_position()
+		if target_pos is None:
+			return False
+
+		my_pos = self.node.getPos()
+
+		# Player capsule dimensions
+		player_radius = getattr(self.target, 'radius', 0.3)
+		player_height = getattr(self.target, '_current_height', 1.8)
+
+		# Spider as a sphere at its center
+		spider_radius = self.hit_sphere_radius
+		spider_center = Vec3(my_pos.x, my_pos.y, my_pos.z + spider_radius + self.hit_sphere_vertical_offset)
+
+		# Capsule axis from bottom to top
+		capsule_bottom = Vec3(target_pos.x, target_pos.y, target_pos.z + player_radius)
+		capsule_top = Vec3(target_pos.x, target_pos.y, target_pos.z + player_height - player_radius)
+
+		# Find closest point on capsule axis to spider center
+		axis = capsule_top - capsule_bottom
+		axis_len = axis.length()
+		if axis_len < 0.01:
+			closest = capsule_bottom
+		else:
+			axis_norm = axis / axis_len
+			t = (spider_center - capsule_bottom).dot(axis_norm)
+			t = max(0, min(axis_len, t))
+			closest = capsule_bottom + axis_norm * t
+
+		# Check distance
+		dist = (spider_center - closest).length()
+		return dist < (player_radius + spider_radius)
 
 	def get_distance_to_target(self):
 		"""Get horizontal distance to target"""
@@ -130,13 +192,17 @@ class FaceSpider(CreatureEntity):
 		return None
 
 	def _raycast_forward(self, from_pos, direction, dist):
-		"""Raycast forward, return True if hit wall"""
+		"""Raycast forward, return True if hit wall (ignores player)"""
 		to_pos = from_pos + direction * dist
 		to_pos.z = from_pos.z + 0.5  # Check at body height
 		from_check = Vec3(from_pos.x, from_pos.y, from_pos.z + 0.5)
 
 		result = self.engine.physics.rayTestClosest(from_check, to_pos)
 		if result.hasHit():
+			hit_node = result.getNode()
+			# Ignore player body
+			if hit_node and hit_node.getName() == 'player_body':
+				return False, None
 			hit_pos = result.getHitPos()
 			hit_normal = result.getHitNormal()
 			# Wall = mostly vertical normal
@@ -404,28 +470,31 @@ class FaceSpider(CreatureEntity):
 		self.node.setPos(new_pos)
 
 	def start_pounce(self):
-		"""Begin a pounce attack toward the player"""
+		"""Begin a pounce attack toward the player's head"""
 		if self._pounce_timer > 0 or self._is_pouncing:
 			return
 
-		target_pos = self._get_target_position()
+		# Aim at player's head
+		target_pos = self._get_target_head_position()
 		if target_pos is None:
 			return
 
-		self._start_pounce_to(target_pos)
+		self._start_pounce_to(target_pos, is_attack=True)
 
 	def start_pounce_to(self, target_pos):
 		"""Begin a pounce to a specific position (for wander pouncing)"""
 		if self._pounce_timer > 0 or self._is_pouncing:
 			return
 
-		self._start_pounce_to(target_pos)
+		self._start_pounce_to(target_pos, is_attack=False)
 
-	def _start_pounce_to(self, target_pos):
+	def _start_pounce_to(self, target_pos, is_attack=False):
 		"""Internal: execute pounce to position"""
 		self._is_pouncing = True
 		self._pounce_airborne = False
 		self._pounce_falling = False
+		self._pounce_hit_player = False
+		self._pounce_is_attack = is_attack
 		self._pounce_start_pos = Vec3(self.node.getPos())
 
 		# Calculate pounce direction
@@ -519,6 +588,12 @@ class FaceSpider(CreatureEntity):
 
 		self.node.setPos(new_pos)
 
+		# Check if hit player (only on attack pounces, using intersection)
+		if not self._pounce_hit_player and self._pounce_is_attack and self._intersects_player():
+			self._pounce_hit_player = True
+			if hasattr(self.target, 'take_damage'):
+				self.target.take_damage(self.pounce_damage)
+
 		# Check if landed (pounce complete)
 		if t >= 1.0:
 			# Check for ground
@@ -540,9 +615,71 @@ class FaceSpider(CreatureEntity):
 		self._pounce_falling = False
 		self._velocity_z = 0.0  # Reset gravity velocity
 
+		# Start backtracking if we hit the player
+		if self._pounce_hit_player and self._pounce_direction:
+			my_pos = self.node.getPos()
+			self._backtrack_target = my_pos - self._pounce_direction * self._pounce_backtrack_distance
+			self._backtrack_direction = -self._pounce_direction
+			self._is_backtracking = True
+
+			# Play walk animation backwards
+			if self.actor:
+				self.actor.loop('walk')
+				self.actor.setPlayRate(-self.walk_anim_speed, 'walk')
+			return
+
 		# Resume animation from frame 15 to finish
 		if self.actor:
 			self.actor.play('pounce', fromFrame=self._pounce_frame)
+
+	def update_backtrack(self, dt):
+		"""Update backtracking movement after hitting player"""
+		if not self._is_backtracking:
+			return
+
+		my_pos = self.node.getPos()
+
+		# Check if reached backtrack target
+		to_target = self._backtrack_target - my_pos
+		to_target.z = 0
+		dist = to_target.length()
+
+		if dist < 0.1:
+			# Reached target, stop backtracking
+			self._is_backtracking = False
+			self._backtrack_target = None
+			self._backtrack_direction = None
+			self.set_state(self.STATE_IDLE)
+			return
+
+		# Move backwards
+		move_dist = self._pounce_backtrack_speed * dt
+		if move_dist > dist:
+			move_dist = dist
+
+		# Check for wall behind
+		hit_wall, _ = self._raycast_forward(my_pos, self._backtrack_direction, move_dist + 0.3)
+		if hit_wall:
+			# Wall behind, stop backtracking
+			self._is_backtracking = False
+			self._backtrack_target = None
+			self._backtrack_direction = None
+			self.set_state(self.STATE_IDLE)
+			return
+
+		new_pos = my_pos + self._backtrack_direction * move_dist
+
+		# Check for ground
+		ground = self._raycast_down(new_pos)
+		if ground:
+			new_pos.z = ground.z + self._ground_offset
+			self.node.setPos(new_pos)
+		else:
+			# No ground behind, stop backtracking
+			self._is_backtracking = False
+			self._backtrack_target = None
+			self._backtrack_direction = None
+			self.set_state(self.STATE_IDLE)
 
 	def set_state(self, new_state, force=False, blend_time=None):
 		"""Change state and play animation"""
@@ -589,6 +726,11 @@ class FaceSpider(CreatureEntity):
 		# If mid-pounce, just update the jump
 		if self._is_pouncing:
 			self.update_pounce(dt)
+			return
+
+		# If backtracking after hitting player
+		if self._is_backtracking:
+			self.update_backtrack(dt)
 			return
 
 		# Apply gravity when not pouncing
@@ -706,6 +848,10 @@ class FaceSpider(CreatureEntity):
 
 		self._update_debug()
 
+		# Skip state transitions while backtracking
+		if self._is_backtracking:
+			return
+
 		# After pounce finishes, decide next state
 		if self.state == self.STATE_ATTACK and not self._is_pouncing:
 			duration = self.get_duration('pounce')
@@ -752,17 +898,82 @@ class FaceSpider(CreatureEntity):
 		np.reparentTo(base.render)
 		return np
 
+	def _create_debug_sphere(self):
+		"""Create wireframe sphere for hit detection visualization"""
+		from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexWriter
+		from panda3d.core import Geom, GeomLines, GeomNode, NodePath
+
+		segments = 24
+		radius = self.hit_sphere_radius
+
+		# 3 circles: XY (horizontal), XZ (vertical front), YZ (vertical side)
+		vdata = GeomVertexData('sphere', GeomVertexFormat.get_v3c4(), Geom.UHStatic)
+		vdata.setNumRows(segments * 3)
+		vertex = GeomVertexWriter(vdata, 'vertex')
+		color = GeomVertexWriter(vdata, 'color')
+
+		# XY circle (horizontal) at z=0 relative to sphere center
+		for i in range(segments):
+			angle = (i / segments) * math.pi * 2
+			vertex.addData3(math.cos(angle) * radius, math.sin(angle) * radius, 0)
+			color.addData4(0, 1, 0, 1)  # Green
+
+		# XZ circle (vertical, front view)
+		for i in range(segments):
+			angle = (i / segments) * math.pi * 2
+			vertex.addData3(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+			color.addData4(0, 1, 0, 1)  # Green
+
+		# YZ circle (vertical, side view)
+		for i in range(segments):
+			angle = (i / segments) * math.pi * 2
+			vertex.addData3(0, math.cos(angle) * radius, math.sin(angle) * radius)
+			color.addData4(0, 1, 0, 1)  # Green
+
+		lines = GeomLines(Geom.UHStatic)
+		# Connect each circle
+		for circle in range(3):
+			offset = circle * segments
+			for i in range(segments):
+				lines.addVertices(offset + i, offset + (i + 1) % segments)
+				lines.closePrimitive()
+
+		geom = Geom(vdata)
+		geom.addPrimitive(lines)
+		node = GeomNode('hit_sphere')
+		node.addGeom(geom)
+		np = NodePath(node)
+		np.setLightOff()
+		np.setRenderModeThickness(2)
+		np.setBin('fixed', 100)
+		np.setDepthTest(False)
+		np.setDepthWrite(False)
+		np.reparentTo(base.render)
+		return np
+
 	def _update_debug(self):
 		if self.debug_mode:
+			# Ground circle (yellow)
 			if not self._debug_circle:
 				self._debug_circle = self._create_debug_circle()
 			pos = self.node.getPos()
 			self._debug_circle.setPos(pos.x, pos.y, pos.z)
-		elif self._debug_circle:
-			self._debug_circle.removeNode()
-			self._debug_circle = None
+
+			# Hit sphere (green) - centered at hit_sphere_radius height + offset
+			if not self._debug_sphere:
+				self._debug_sphere = self._create_debug_sphere()
+			self._debug_sphere.setPos(pos.x, pos.y, pos.z + self.hit_sphere_radius + self.hit_sphere_vertical_offset)
+		else:
+			if self._debug_circle:
+				self._debug_circle.removeNode()
+				self._debug_circle = None
+			if self._debug_sphere:
+				self._debug_sphere.removeNode()
+				self._debug_sphere = None
 
 	def destroy(self):
 		if self._debug_circle:
 			self._debug_circle.removeNode()
+		if self._debug_sphere:
+			self._debug_sphere.removeNode()
 		super().destroy()

@@ -1,8 +1,10 @@
 from area_43.creature_handler import CreatureHandler
 from area_43.entities.entity_creatures.face_spider import FaceSpider
 from area_43.entities.entity_creatures.spike_monster import SpikeMonster
+from area_43.free_flying_camera import FreeFlyingCamera
 from engine.effects.fog_distance import DistanceFog
 from engine.effects.fog_linear import LinearFog
+
 
 from engine.effects.scanlines import Scanlines
 from engine.effects.shadow_mask import ShadowMask
@@ -47,6 +49,9 @@ class WorkshopScene(Scene):
 		# Player
 		self.player = None
 
+		# Free Flying Camera
+		self.free_cam = None
+
 		# Interactive Cube
 		self.cube = None
 
@@ -83,8 +88,12 @@ class WorkshopScene(Scene):
 		#self.engine.sound_player.play('wind', 'assets/sounds/wind_000.mp3', loop=True, volume=0.2)
 
 		# Player
-		self.player = Player(self.engine, self.engine.physics, position=(5.11, -2.12, 0.7), rotation=(0, 35), near_clip=0.01)
+		self.player = Player(self.engine, self.engine.physics, position=(5.11, -2.12, 0.7), rotation=(0, 35), near_clip=0.01, debug_mode=True)
 		self.engine.renderer.set_camera(self.player.camera)
+
+		# Create free camera
+		self.free_cam = FreeFlyingCamera(self.engine, position=(0, -5, 3))
+		self.use_free_cam = False
 
 		# Interactive Objects
 		self.interactive_objects = []
@@ -263,11 +272,7 @@ class WorkshopScene(Scene):
 
 	def setup_creatures(self):
 		self.creatures.add(SpikeMonster(self.engine, position=[3, 0, 0], scale=0.2, debug_mode=False))  # id 0
-		self.creatures.add(FaceSpider(self.engine, position=[5, -3, 0], scale=0.1, debug_mode=False))  # id 1
-		self.creatures.add(FaceSpider(self.engine, position=[7, -2, 0], scale=0.1, debug_mode=False))  # id 2
-		self.creatures.add(FaceSpider(self.engine, position=[4, -5, 0], scale=0.1, debug_mode=False))  # id 3
-		self.creatures.add(FaceSpider(self.engine, position=[6, -6, 0], scale=0.1, debug_mode=False))  # id 4
-		self.creatures.add(FaceSpider(self.engine, position=[8, -4, 0], scale=0.1, debug_mode=False))  # id 5
+		self.creatures.add(FaceSpider(self.engine, position=[5, -3, 0], scale=0.1, debug_mode=True))  # id 1
 
 	def some_function(self):
 		print("interacted")
@@ -283,8 +288,23 @@ class WorkshopScene(Scene):
 		if input_handler.is_key_down('f5'):
 			self.player.reset()
 
-		# Player
-		self.player.handle_input(input_handler)
+		# Toggle free camera
+		if input_handler.is_key_down('n'):
+			self.use_free_cam = not self.use_free_cam
+			if self.use_free_cam:
+				# Start free cam near player
+				self.free_cam.position = [
+					self.player._position[0] - 3,
+					self.player._position[1] - 3,
+					self.player._position[2] + 2
+				]
+			self.engine.scene_handler.console.print(f"Free cam: {'ON' if self.use_free_cam else 'OFF'}")
+
+		# Input to active controller
+		if self.use_free_cam:
+			self.free_cam.handle_input(input_handler)
+		else:
+			self.player.handle_input(input_handler)
 
 	def update(self, dt):
 		super().update(dt)
@@ -297,7 +317,11 @@ class WorkshopScene(Scene):
 
 		# Player - Skip player update if console is open
 		if not self.engine.scene_handler.console.is_open:
-			self.player.update(dt)
+			if self.use_free_cam:
+				self.free_cam.update(dt)
+				self.player._update_debug_hitbox()  # Keep hitbox visible
+			else:
+				self.player.update(dt)
 
 		# Interactive objects
 		for obj in self.interactive_objects:
@@ -345,6 +369,10 @@ class WorkshopScene(Scene):
 
 		# Player
 		self.player.destroy()
+
+		# Free cam
+		if self.free_cam:
+			self.free_cam.destroy()
 
 		# Level
 		self.level.destroy()
