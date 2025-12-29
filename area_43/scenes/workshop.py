@@ -2,6 +2,7 @@ from area_43.creature_handler import CreatureHandler
 from area_43.entities.entity_creatures.face_spider import FaceSpider
 from area_43.entities.entity_creatures.spike_monster import SpikeMonster
 from area_43.free_flying_camera import FreeFlyingCamera
+from area_43.third_person_player import ThirdPersonPlayer
 from engine.effects.fog_distance import DistanceFog
 from engine.effects.fog_linear import LinearFog
 
@@ -46,11 +47,16 @@ class WorkshopScene(Scene):
 		# Interactive Objects
 		self.interactive_objects = None
 
-		# Player
+		# Player (first person)
 		self.player = None
+
+		# Third Person Player
+		self.third_person_player = None
+		self.use_third_person = True  # Start in third person
 
 		# Free Flying Camera
 		self.free_cam = None
+		self.use_free_cam = False
 
 		# Interactive Cube
 		self.cube = None
@@ -87,13 +93,27 @@ class WorkshopScene(Scene):
 		# Ambient sound
 		#self.engine.sound_player.play('wind', 'assets/sounds/wind_000.mp3', loop=True, volume=0.2)
 
-		# Player
+		# First Person Player
 		self.player = Player(self.engine, self.engine.physics, position=(5.11, -2.12, 0.7), rotation=(0, 35), near_clip=0.01, debug_mode=False)
-		self.engine.renderer.set_camera(self.player.camera)
+
+		# Third Person Player (different spawn location)
+		self.third_person_player = ThirdPersonPlayer(
+			self.engine,
+			self.engine.physics,
+			position=(0, 0, 1.0),
+			rotation=(0, 0),
+			near_clip=0.01,
+			debug_mode=True
+		)
+
+		# Set initial camera based on mode
+		if self.use_third_person:
+			self.engine.renderer.set_camera(self.third_person_player.camera)
+		else:
+			self.engine.renderer.set_camera(self.player.camera)
 
 		# Create free camera
 		self.free_cam = FreeFlyingCamera(self.engine, position=(0, -5, 3))
-		self.use_free_cam = False
 
 		# Interactive Objects
 		self.interactive_objects = []
@@ -277,6 +297,22 @@ class WorkshopScene(Scene):
 	def some_function(self):
 		print("interacted")
 
+	def _switch_to_first_person(self):
+		"""Switch to first person player"""
+		self.use_third_person = False
+		self.engine.renderer.set_camera(self.player.camera)
+		self.engine.input_handler.set_mouse_locked(True)
+		self.player.looking = True
+		self.engine.scene_handler.console.print("Switched to First Person")
+
+	def _switch_to_third_person(self):
+		"""Switch to third person player"""
+		self.use_third_person = True
+		self.engine.renderer.set_camera(self.third_person_player.camera)
+		self.engine.input_handler.set_mouse_locked(True)
+		self.third_person_player.looking = True
+		self.engine.scene_handler.console.print("Switched to Third Person")
+
 	def handle_input(self, input_handler):
 		super().handle_input(input_handler)
 
@@ -284,25 +320,38 @@ class WorkshopScene(Scene):
 		if self.engine.scene_handler.console.is_open:
 			return
 
-		# Reset player position
+		# Toggle between first and third person (F4)
+		if input_handler.is_key_down('f4'):
+			if self.use_third_person:
+				self._switch_to_first_person()
+			else:
+				self._switch_to_third_person()
+			return
+
+		# Reset current player position
 		if input_handler.is_key_down('f5'):
-			self.player.reset()
+			if self.use_third_person:
+				self.third_person_player.reset()
+			else:
+				self.player.reset()
 
 		# Toggle free camera
 		if input_handler.is_key_down('n'):
 			self.use_free_cam = not self.use_free_cam
 			if self.use_free_cam:
-				# Start free cam near player
-				self.free_cam.position = [
-					self.player._position[0] - 3,
-					self.player._position[1] - 3,
-					self.player._position[2] + 2
-				]
+				# Start free cam near active player
+				if self.use_third_person:
+					pos = self.third_person_player.position
+				else:
+					pos = self.player._position
+				self.free_cam.position = [pos[0] - 3, pos[1] - 3, pos[2] + 2]
 			self.engine.scene_handler.console.print(f"Free cam: {'ON' if self.use_free_cam else 'OFF'}")
 
 		# Input to active controller
 		if self.use_free_cam:
 			self.free_cam.handle_input(input_handler)
+		elif self.use_third_person:
+			self.third_person_player.handle_input(input_handler)
 		else:
 			self.player.handle_input(input_handler)
 
@@ -315,11 +364,17 @@ class WorkshopScene(Scene):
 		# Physics
 		self.engine.physics.doPhysics(dt)
 
-		# Player - Skip player update if console is open
+		# Player updates - Skip if console is open
 		if not self.engine.scene_handler.console.is_open:
 			if self.use_free_cam:
 				self.free_cam.update(dt)
-				self.player._update_debug_hitbox()  # Keep hitbox visible
+				# Keep active player's hitbox visible
+				if self.use_third_person:
+					self.third_person_player._update_debug_hitbox()
+				else:
+					self.player._update_debug_hitbox()
+			elif self.use_third_person:
+				self.third_person_player.update(dt)
 			else:
 				self.player.update(dt)
 
@@ -367,8 +422,9 @@ class WorkshopScene(Scene):
 		if self.pp_stack:
 			self.pp_stack.destroy()
 
-		# Player
+		# Players
 		self.player.destroy()
+		self.third_person_player.destroy()
 
 		# Free cam
 		if self.free_cam:
