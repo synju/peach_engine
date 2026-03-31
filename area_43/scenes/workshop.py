@@ -6,7 +6,6 @@ from area_43.third_person_player import ThirdPersonPlayer
 from engine.effects.fog_distance import DistanceFog
 from engine.effects.fog_linear import LinearFog
 
-
 from engine.effects.scanlines import Scanlines
 from engine.effects.shadow_mask import ShadowMask
 from engine.light import AmbientLight, DirectionalLight, PointLight
@@ -52,7 +51,7 @@ class WorkshopScene(Scene):
 
 		# Third Person Player
 		self.third_person_player = None
-		self.use_third_person = True  # Start in third person
+		self.use_third_person = False  # Start in third person
 
 		# Free Flying Camera
 		self.free_cam = None
@@ -90,9 +89,38 @@ class WorkshopScene(Scene):
 		# Lighting
 		self.setup_lights()
 
-		# Ambient sound
-		#self.engine.sound_player.play('wind', 'assets/sounds/wind_000.mp3', loop=True, volume=0.2)
+		# Sound
+		self.setup_sound()
 
+		# Players
+		self.setup_players()
+
+		# Cameras
+		self.setup_cameras()
+
+		# Interactive Objects
+		self.setup_interactive_objects()
+
+		# Effects
+		self.setup_effects()
+
+		# Level
+		self.setup_level()
+
+		# Creatures
+		self.setup_creatures()
+
+	def setup_lights(self):
+		self.ambient_light = AmbientLight(self.engine, 'ambient', color=(1.0, 1.0, 1.0, 0.5), light_enabled=True)
+		self.sun_light = DirectionalLight(self.engine, 'sun', color=(1, 1, 1, 1), direction=(-1, 1, -1), position=(0, 0, 10), light_enabled=False)
+		self.bulb = PointLight(self.engine, 'sun', color=(1, 1, 1, 1), position=(5, -3, 3), light_enabled=False)
+
+	def setup_sound(self):
+		# Ambient sound
+		# self.engine.sound_player.play('wind', 'assets/sounds/wind_000.mp3', loop=True, volume=0.2)
+		pass
+
+	def setup_players(self):
 		# First Person Player
 		self.player = Player(self.engine, self.engine.physics, position=(5.11, -2.12, 0.7), rotation=(0, 35), near_clip=0.01, debug_mode=False)
 
@@ -106,6 +134,7 @@ class WorkshopScene(Scene):
 			debug_mode=True
 		)
 
+	def setup_cameras(self):
 		# Set initial camera based on mode
 		if self.use_third_person:
 			self.engine.renderer.set_camera(self.third_person_player.camera)
@@ -115,31 +144,10 @@ class WorkshopScene(Scene):
 		# Create free camera
 		self.free_cam = FreeFlyingCamera(self.engine, position=(0, -5, 3))
 
-		# Interactive Objects
-		self.interactive_objects = []
-		self.cube = InteractiveCube(self.engine, position=[1, -0.75, 0.5], rotation=[0, 0, 0], scale=0.2, collision_enabled=True, debug_mode=False)
-		self.cube.set_interact(self.some_function)
-
+	def setup_effects(self):
 		# Setup Post Processing Stack
 		self.pp_stack = PostProcessingStack(self.engine)
-		self.setup_effects()
 
-		# Level
-		self.level = MeshObject(self.engine, 'engine', 'entities/models/misc.gltf', position=[0, 0, 0], rotation=[0, 0, 0], scale=0.2, collision_enabled=True)
-
-		# Creatures
-		self.creatures = CreatureHandler()
-		self.setup_creatures()
-
-		# Set target for all at once
-		self.creatures.set_target_all(self.player)
-
-	def setup_lights(self):
-		self.ambient_light = AmbientLight(self.engine, 'ambient', color=(0.3, 0.3, 0.3, 1), light_enabled=True)
-		self.sun_light = DirectionalLight(self.engine, 'sun', color=(1, 1, 1, 1), direction=(-1, 1, -1), position=(0, 0, 10), light_enabled=True)
-		self.bulb = PointLight(self.engine, 'sun', color=(1, 1, 1, 1), position=(5, -3, 3), light_enabled=False)
-
-	def setup_effects(self):
 		# Fog Volume (Quake 3 Arena)
 		# self.fog = FogVolume(self.engine, position=(4.4, -2.9, 1.9), size=(9.5, 7.5, 3.6), color=(1, 1, 1), density=0.1, debug_mode=False)
 
@@ -290,9 +298,22 @@ class WorkshopScene(Scene):
 		))
 		lottes.enabled = False
 
+	def setup_interactive_objects(self):
+		self.interactive_objects = []
+		self.cube = InteractiveCube(self.engine, position=[1, -0.75, 0.5], rotation=[0, 0, 0], scale=0.2, collision_enabled=True, debug_mode=False)
+		self.cube.set_interact(self.some_function)
+
+	def setup_level(self):
+		self.level = MeshObject(self.engine, 'engine', 'entities/models/misc.gltf', position=[0, 0, 0], rotation=[0, 0, 0], scale=0.2, collision_enabled=True)
+
 	def setup_creatures(self):
+		self.creatures = CreatureHandler()
+
 		self.creatures.add(SpikeMonster(self.engine, position=[3, 0, 0], scale=0.2, debug_mode=False))  # id 0
 		self.creatures.add(FaceSpider(self.engine, position=[5, -3, 0], scale=0.1, debug_mode=False))  # id 1
+
+		# Set target for all at once
+		self.creatures.set_target_all(self.player)
 
 	def some_function(self):
 		print("interacted")

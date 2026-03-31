@@ -15,11 +15,15 @@ class Light:
 	def __init__(self, engine, name='Light', color=(1, 1, 1, 1), light_enabled=True):
 		self.engine = engine
 		self.name = name
-		self._color = list(color)
 		self._enabled = light_enabled
 		self.light = None
 		self.node = None
 		self._position = [0, 0, 0]
+
+		# Pad to 4 values if only 3 given
+		if len(color) == 3:
+			color = (*color, 1)
+		self._color = list(color)
 
 		# Debug icon
 		self._debug_icon = None
@@ -70,22 +74,27 @@ class Light:
 			if self._debug_icon:
 				self._debug_icon.hide()
 
-	@property
-	def color(self):
+	def _apply_color(self):
+		"""Apply color with alpha as intensity multiplier"""
+		if self.light:
+			r, g, b, a = self._color
+			a = max(0, min(1, a))
+			self.light.setColor(Vec4(r * a, g * a, b * a, 1))
+
+	def get_color(self):
 		return self._color
 
-	@color.setter
-	def color(self, value):
+	def set_color(self, value):
+		if len(value) == 3:
+			value = (*value, 1)
 		self._color = list(value)
-		if self.light:
-			self.light.setColor(Vec4(*self._color))
+		self._color[3] = max(0, min(1, self._color[3]))
+		self._apply_color()
 
-	@property
-	def enabled(self):
+	def get_enabled(self):
 		return self._enabled
 
-	@enabled.setter
-	def enabled(self, value):
+	def set_enabled(self, value):
 		self._enabled = value
 		if self.node:
 			if value:
@@ -93,26 +102,24 @@ class Light:
 			else:
 				base.render.clearLight(self.node)
 
-	@property
-	def position(self):
+	def get_position(self):
 		return self._position
 
-	@position.setter
-	def position(self, value):
+	def set_position(self, value):
 		self._position = list(value)
 		self._update_debug_icon()
 
 	def turn_on(self):
 		"""Turn the light on"""
-		self.enabled = True
+		self.set_enabled(True)
 
 	def turn_off(self):
 		"""Turn the light off"""
-		self.enabled = False
+		self.set_enabled(False)
 
 	def toggle_light(self):
 		"""Toggle light on/off"""
-		self.enabled = not self._enabled
+		self.set_enabled(not self._enabled)
 
 	def update(self):
 		"""Call each frame to update debug icon visibility"""
@@ -131,11 +138,11 @@ class Light:
 class AmbientLight(Light):
 	"""Ambient light - illuminates everything equally"""
 
-	def __init__(self, engine, name='AmbientLight', color=(0.2, 0.2, 0.2, 1), light_enabled=True):
+	def __init__(self, engine, name='AmbientLight', color=(0.2, 0.2, 0.2), light_enabled=True):
 		super().__init__(engine, name, color, light_enabled)
 
 		self.light = PandaAmbientLight(name)
-		self.light.setColor(Vec4(*self._color))
+		self._apply_color()
 
 		self.node = base.render.attachNewNode(self.light)
 		if self._enabled:
@@ -148,17 +155,17 @@ class AmbientLight(Light):
 class DirectionalLight(Light):
 	"""Directional light - like the sun, parallel rays"""
 
-	def __init__(self, engine, name='DirectionalLight', color=(1, 1, 1, 1), direction=(0, 0, -1), position=(0, 0, 10), light_enabled=True):
+	def __init__(self, engine, name='DirectionalLight', color=(1, 1, 1), direction=(0, 0, -1), position=(0, 0, 10), light_enabled=True):
 		super().__init__(engine, name, color, light_enabled)
 		self._direction = list(direction)
 		self._position = list(position)
 		self._debug_arrow = None
 
 		self.light = PandaDirectionalLight(name)
-		self.light.setColor(Vec4(*self._color))
+		self._apply_color()
 
 		self.node = base.render.attachNewNode(self.light)
-		self.direction = direction
+		self.set_direction(direction)
 		if self._enabled:
 			base.render.setLight(self.node)
 
@@ -225,24 +232,17 @@ class DirectionalLight(Light):
 			if self._debug_arrow:
 				self._debug_arrow.hide()
 
-	@property
-	def direction(self):
+	def get_direction(self):
 		return self._direction
 
-	@direction.setter
-	def direction(self, value):
+	def set_direction(self, value):
 		self._direction = list(value)
 		if self.node:
 			self.node.lookAt(value[0], value[1], value[2])
 		if self._debug_arrow and self.engine.debug_enabled:
 			self._create_debug_arrow()
 
-	@property
-	def position(self):
-		return self._position
-
-	@position.setter
-	def position(self, value):
+	def set_position(self, value):
 		self._position = list(value)
 		self._update_debug_icon()
 
@@ -255,23 +255,18 @@ class DirectionalLight(Light):
 class PointLight(Light):
 	"""Point light - emits from a position in all directions"""
 
-	def __init__(self, engine, name='PointLight', color=(1, 1, 1, 1), position=(0, 0, 0), light_enabled=True):
+	def __init__(self, engine, name='PointLight', color=(1, 1, 1), position=(0, 0, 0), light_enabled=True):
 		super().__init__(engine, name, color, light_enabled)
 
 		self.light = PandaPointLight(name)
-		self.light.setColor(Vec4(*self._color))
+		self._apply_color()
 
 		self.node = base.render.attachNewNode(self.light)
-		self.position = position
+		self.set_position(position)
 		if self._enabled:
 			base.render.setLight(self.node)
 
-	@property
-	def position(self):
-		return self._position
-
-	@position.setter
-	def position(self, value):
+	def set_position(self, value):
 		self._position = list(value)
 		if self.node:
 			self.node.setPos(*self._position)
