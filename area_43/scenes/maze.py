@@ -176,8 +176,8 @@ class MazeScene(Scene):
 					self.third_person_player.position= self.free_cam.position
 				else:
 					pos = list(self.free_cam.position)
-					pos[1] -= self.player.height
-					self.player._position = self.free_cam.position
+					pos[2] -= self.player.eye_height
+					self.player._position = pos
 
 				# Heading
 				self.player.heading = self.free_cam.heading
