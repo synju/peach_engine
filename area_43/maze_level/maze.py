@@ -5,11 +5,11 @@ from .box import Box
 class Maze:
     """Creates a 3D maze from maze generator output."""
 
-    def __init__(self, engine, size=15, wall_height=3, wall_thickness=1, seed=None):
+    def __init__(self, engine, size=15, cell_height=3, cell_thickness=1, seed=None):
         self.engine = engine
         self.size = size
-        self.wall_height = wall_height
-        self.wall_thickness = wall_thickness
+        self.cell_height = cell_height
+        self.cell_thickness = cell_thickness
         self.boxes = []
 
         generator = MazeGenerator(size, size)
@@ -22,14 +22,14 @@ class Maze:
                 if self.grid[y][x]:
                     box = Box(
                         self.engine,
-                        name=f'wall_{x}_{y}',
-                        width=self.wall_thickness,
-                        length=self.wall_thickness,
-                        height=self.wall_height,
+                        name=f"cell_{x}_{y}",
+                        width=self.cell_thickness,
+                        length=self.cell_thickness,
+                        height=self.cell_height,
                         color=(0.3, 0.3, 0.3, 1),
-                        collision_enabled=True
+                        collision_enabled=True,
                     )
-                    box.position = [offset_x + x, offset_y + y, self.wall_height / 2]
+                    box.set_position(offset_x + x, offset_y + y, self.cell_height / 2)
                     self.boxes.append(box)
 
     def destroy(self):

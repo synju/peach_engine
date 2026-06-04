@@ -1,7 +1,11 @@
 from engine.mesh_object import MeshObject
 from panda3d.core import (
-    GeomVertexFormat, GeomVertexData, GeomVertexWriter,
-    Geom, GeomTriangles, GeomNode
+    GeomVertexFormat,
+    GeomVertexData,
+    GeomVertexWriter,
+    Geom,
+    GeomTriangles,
+    GeomNode,
 )
 from direct.showbase.ShowBase import ShowBase
 
@@ -9,7 +13,16 @@ base: ShowBase
 
 
 class Box:
-    def __init__(self, engine, name='Box', width=1, length=1, height=1, color=(1, 1, 1, 1), collision_enabled=False):
+    def __init__(
+        self,
+        engine,
+        name="Box",
+        width=1,
+        length=1,
+        height=1,
+        color=(1, 1, 1, 1),
+        collision_enabled=False,
+    ):
         self.engine = engine
         self.name = name
         self.mesh = MeshObject(engine, name)
@@ -23,30 +36,66 @@ class Box:
         half_h = height / 2
 
         vertices = [
-            (-half_w, -half_l, -half_h), (half_w, -half_l, -half_h), (half_w, -half_l, half_h), (-half_w, -half_l, half_h),
-            (-half_w, half_l, -half_h), (half_w, half_l, -half_h), (half_w, half_l, half_h), (-half_w, half_l, half_h),
-            (-half_w, -half_l, -half_h), (-half_w, half_l, -half_h), (-half_w, half_l, half_h), (-half_w, -half_l, half_h),
-            (half_w, -half_l, -half_h), (half_w, half_l, -half_h), (half_w, half_l, half_h), (half_w, -half_l, half_h),
-            (-half_w, -half_l, -half_h), (half_w, -half_l, -half_h), (half_w, half_l, -half_h), (-half_w, half_l, -half_h),
-            (-half_w, -half_l, half_h), (half_w, -half_l, half_h), (half_w, half_l, half_h), (-half_w, half_l, half_h),
+            (-half_w, -half_l, -half_h),
+            (half_w, -half_l, -half_h),
+            (half_w, -half_l, half_h),
+            (-half_w, -half_l, half_h),
+            (-half_w, half_l, -half_h),
+            (half_w, half_l, -half_h),
+            (half_w, half_l, half_h),
+            (-half_w, half_l, half_h),
+            (-half_w, -half_l, -half_h),
+            (-half_w, half_l, -half_h),
+            (-half_w, half_l, half_h),
+            (-half_w, -half_l, half_h),
+            (half_w, -half_l, -half_h),
+            (half_w, half_l, -half_h),
+            (half_w, half_l, half_h),
+            (half_w, -half_l, half_h),
+            (-half_w, -half_l, -half_h),
+            (half_w, -half_l, -half_h),
+            (half_w, half_l, -half_h),
+            (-half_w, half_l, -half_h),
+            (-half_w, -half_l, half_h),
+            (half_w, -half_l, half_h),
+            (half_w, half_l, half_h),
+            (-half_w, half_l, half_h),
         ]
 
         normals = [
-            (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0),
-            (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0),
-            (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0),
-            (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0),
-            (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1),
-            (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1),
+            (0, -1, 0),
+            (0, -1, 0),
+            (0, -1, 0),
+            (0, -1, 0),
+            (0, 1, 0),
+            (0, 1, 0),
+            (0, 1, 0),
+            (0, 1, 0),
+            (-1, 0, 0),
+            (-1, 0, 0),
+            (-1, 0, 0),
+            (-1, 0, 0),
+            (1, 0, 0),
+            (1, 0, 0),
+            (1, 0, 0),
+            (1, 0, 0),
+            (0, 0, -1),
+            (0, 0, -1),
+            (0, 0, -1),
+            (0, 0, -1),
+            (0, 0, 1),
+            (0, 0, 1),
+            (0, 0, 1),
+            (0, 0, 1),
         ]
 
         format = GeomVertexFormat.get_v3n3c4()
-        vdata = GeomVertexData('box', format, Geom.UHStatic)
+        vdata = GeomVertexData("box", format, Geom.UHStatic)
         vdata.setNumRows(24)
 
-        vertex = GeomVertexWriter(vdata, 'vertex')
-        normal = GeomVertexWriter(vdata, 'normal')
-        color_writer = GeomVertexWriter(vdata, 'color')
+        vertex = GeomVertexWriter(vdata, "vertex")
+        normal = GeomVertexWriter(vdata, "normal")
+        color_writer = GeomVertexWriter(vdata, "color")
 
         for i, v in enumerate(vertices):
             vertex.addData3(*v)
@@ -69,29 +118,25 @@ class Box:
         self.mesh.node.attachNewNode(node)
         self.mesh.node.setTwoSided(True)
 
-    @property
-    def position(self):
+    def set_position(self, x, y, z):
+        self.mesh.position = [x, y, z]
+        if hasattr(self.mesh, "collision_np"):
+            self.mesh.collision_np.setPos(x, y, z)
+
+    def get_position(self):
         return self.mesh.position
 
-    @position.setter
-    def position(self, value):
-        self.mesh.position = value
+    def set_rotation(self, x, y, z):
+        self.mesh.rotation = [x, y, z]
 
-    @property
-    def rotation(self):
+    def get_rotation(self):
         return self.mesh.rotation
 
-    @rotation.setter
-    def rotation(self, value):
-        self.mesh.rotation = value
+    def set_scale(self, x, y, z):
+        self.mesh.scale = [x, y, z]
 
-    @property
-    def scale(self):
+    def get_scale(self):
         return self.mesh.scale
-
-    @scale.setter
-    def scale(self, value):
-        self.mesh.scale = value
 
     def set_color(self, r, g, b, a=1):
         pass

@@ -109,7 +109,7 @@ class MazeScene(Scene):
 		self.free_cam = FreeFlyingCamera(self.engine, position=(0, -5, 3))
 
 	def setup_level(self):
-		self.maze = Maze(self.engine, size=15, wall_height=3, wall_thickness=1, seed=42)
+		self.maze = Maze(self.engine, size=15, cell_height=3, cell_thickness=1, seed=42)
 		self.maze.spawn(offset_x=0, offset_y=0)
 
 	def switch_to_first_person(self):
@@ -161,7 +161,7 @@ class MazeScene(Scene):
 				if self.use_third_person:
 					self.free_cam.position = self.third_person_player.position
 				else:
-					self.free_cam.position = self.player._position
+					self.free_cam.position = self.player.camera.position
 
 				# Heading
 				self.free_cam.heading = self.player.heading
@@ -175,6 +175,8 @@ class MazeScene(Scene):
 				if self.use_third_person:
 					self.third_person_player.position= self.free_cam.position
 				else:
+					pos = list(self.free_cam.position)
+					pos[1] -= self.player.height
 					self.player._position = self.free_cam.position
 
 				# Heading
