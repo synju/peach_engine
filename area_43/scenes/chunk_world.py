@@ -111,7 +111,7 @@ class ChunkWorldScene(Scene):
         self.player = Player(
             self.engine,
             self.engine.physics,
-            position=(15, 15, 1.6),
+            position=(9, 9, 7.5),
             rotation=(0, 0),
             near_clip=0.01,
             debug_mode=True,
@@ -124,7 +124,7 @@ class ChunkWorldScene(Scene):
         self.third_person_player = ThirdPersonPlayer(
             self.engine,
             self.engine.physics,
-            position=(15, 15, 1.6),
+            position=(9, 9, 7.5),
             rotation=(0, 0),
             near_clip=0.01,
             debug_mode=True,
@@ -146,9 +146,9 @@ class ChunkWorldScene(Scene):
         self.chunk = Chunk(
             self.engine,
             name="test_chunk",
-            size_x=16,
-            size_y=16,
-            size_z=2,
+            size_x=10,
+            size_y=10,
+            size_z=10,
             offset_x=0,
             offset_y=0,
             offset_z=0,
