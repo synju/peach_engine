@@ -4,12 +4,13 @@ from panda3d.core import Geom, GeomTriangles, GeomNode
 
 
 class Chunk:
-    SIZE = 16
-
     def __init__(
         self,
         engine,
         name="Chunk",
+        size_x=16,
+        size_y=16,
+        size_z=16,
         offset_x=0,
         offset_y=0,
         offset_z=0,
@@ -17,10 +18,12 @@ class Chunk:
     ):
         self.engine = engine
         self.name = name
+        self.size_x = size_x
+        self.size_y = size_y
+        self.size_z = size_z
         self.offset = (offset_x, offset_y, offset_z)
         self.voxels = [
-            [[0 for _ in range(self.SIZE)] for _ in range(self.SIZE)]
-            for _ in range(self.SIZE)
+            [[0 for _ in range(size_z)] for _ in range(size_y)] for _ in range(size_x)
         ]
         self.mesh = MeshObject(engine, name)
         self.mesh_node = None
@@ -30,12 +33,12 @@ class Chunk:
         self._build_mesh()
 
     def set_voxel(self, x, y, z, voxel_type):
-        if 0 <= x < self.SIZE and 0 <= y < self.SIZE and 0 <= z < self.SIZE:
+        if 0 <= x < self.size_x and 0 <= y < self.size_y and 0 <= z < self.size_z:
             self.voxels[x][y][z] = voxel_type
             self._build_mesh()
 
     def get_voxel(self, x, y, z):
-        if 0 <= x < self.SIZE and 0 <= y < self.SIZE and 0 <= z < self.SIZE:
+        if 0 <= x < self.size_x and 0 <= y < self.size_y and 0 <= z < self.size_z:
             return self.voxels[x][y][z]
         return 0
 
@@ -56,11 +59,11 @@ class Chunk:
 
         if (
             nx < 0
-            or nx >= self.SIZE
+            or nx >= self.size_x
             or ny < 0
-            or ny >= self.SIZE
+            or ny >= self.size_y
             or nz < 0
-            or nz >= self.SIZE
+            or nz >= self.size_z
         ):
             return True
 
@@ -85,9 +88,9 @@ class Chunk:
         tris = GeomTriangles(Geom.UHStatic)
         vertex_index = 0
 
-        for x in range(self.SIZE):
-            for y in range(self.SIZE):
-                for z in range(self.SIZE):
+        for x in range(self.size_x):
+            for y in range(self.size_y):
+                for z in range(self.size_z):
                     if self.voxels[x][y][z] == 0:
                         continue
 
