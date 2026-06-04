@@ -278,7 +278,7 @@ class ThirdPersonPlayer:
 		np.setLightOff()
 		return np
 
-	def _update_debug_hitbox(self):
+	def update_debug_hitbox(self):
 		"""Update debug hitbox"""
 		if self.debug_mode:
 			if not self._debug_hitbox:
@@ -466,7 +466,7 @@ class ThirdPersonPlayer:
 		self._check_ground()
 
 		# Debug
-		self._update_debug_hitbox()
+		self.update_debug_hitbox()
 
 		# Update camera
 		self.camera.update(dt)

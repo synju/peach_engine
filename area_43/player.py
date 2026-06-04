@@ -710,7 +710,7 @@ class Player:
 		np.setLightOff()
 		return np
 
-	def _update_debug_hitbox(self):
+	def update_debug_hitbox(self):
 		"""Update debug hitbox position and visibility"""
 		if self.debug_mode:
 			if not self._debug_hitbox:
@@ -1083,7 +1083,7 @@ class Player:
 
 		# Debug visualization
 		self._update_debug_ray()
-		self._update_debug_hitbox()
+		self.update_debug_hitbox()
 
 		# Update Camera
 		self._update_camera()

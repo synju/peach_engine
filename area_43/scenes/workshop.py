@@ -77,20 +77,13 @@ class WorkshopScene(Scene):
 		super().on_enter()
 
 		# Skybox
-		self.skybox = Skybox(self.engine, faces={
-			'right': ('assets/skydomes/sky_16_2k/sky_16_cubemap_2k/nx.png', 0, True),
-			'left': ('assets/skydomes/sky_16_2k/sky_16_cubemap_2k/px.png', 0, True),
-			'top': ('assets/skydomes/sky_16_2k/sky_16_cubemap_2k/py.png', 0, True),
-			'bottom': ('assets/skydomes/sky_16_2k/sky_16_cubemap_2k/ny.png', 0, False),
-			'front': ('assets/skydomes/sky_16_2k/sky_16_cubemap_2k/nz.png', 0, False),
-			'back': ('assets/skydomes/sky_16_2k/sky_16_cubemap_2k/pz.png', 0, False),
-		})
+		self.setup_skybox()
 
 		# Lighting
 		self.setup_lights()
 
 		# Sound
-		self.setup_sound()
+		#self.setup_sound()
 
 		# Players
 		self.setup_players()
@@ -110,6 +103,16 @@ class WorkshopScene(Scene):
 		# Creatures
 		self.setup_creatures()
 
+	def setup_skybox(self):
+		self.skybox = Skybox(self.engine, faces={
+			'right': ('assets/skydomes/sky_16_2k/sky_16_cubemap_2k/nx.png', 0, True),
+			'left': ('assets/skydomes/sky_16_2k/sky_16_cubemap_2k/px.png', 0, True),
+			'top': ('assets/skydomes/sky_16_2k/sky_16_cubemap_2k/py.png', 0, True),
+			'bottom': ('assets/skydomes/sky_16_2k/sky_16_cubemap_2k/ny.png', 0, False),
+			'front': ('assets/skydomes/sky_16_2k/sky_16_cubemap_2k/nz.png', 0, False),
+			'back': ('assets/skydomes/sky_16_2k/sky_16_cubemap_2k/pz.png', 0, False),
+		})
+
 	def setup_lights(self):
 		self.ambient_light = AmbientLight(self.engine, 'ambient', color=(1.0, 1.0, 1.0, 0.5), light_enabled=True)
 		self.sun_light = DirectionalLight(self.engine, 'sun', color=(1, 1, 1, 1), direction=(-1, 1, -1), position=(0, 0, 10), light_enabled=False)
@@ -117,7 +120,7 @@ class WorkshopScene(Scene):
 
 	def setup_sound(self):
 		# Ambient sound
-		# self.engine.sound_player.play('wind', 'assets/sounds/wind_000.mp3', loop=True, volume=0.2)
+		self.engine.sound_player.play('wind', 'assets/sounds/wind_000.mp3', loop=True, volume=0.2)
 		pass
 
 	def setup_players(self):
@@ -391,9 +394,9 @@ class WorkshopScene(Scene):
 				self.free_cam.update(dt)
 				# Keep active player's hitbox visible
 				if self.use_third_person:
-					self.third_person_player._update_debug_hitbox()
+					self.third_person_player.update_debug_hitbox()
 				else:
-					self.player._update_debug_hitbox()
+					self.player.update_debug_hitbox()
 			elif self.use_third_person:
 				self.third_person_player.update(dt)
 			else:
