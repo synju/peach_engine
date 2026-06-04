@@ -46,7 +46,7 @@ class MazeScene(Scene):
 		self.setup_lights()
 
 		# Sound
-		# self.setup_sound()
+		#self.setup_sound()
 
 		# Players
 		self.setup_players()
@@ -104,7 +104,6 @@ class MazeScene(Scene):
 		self.engine.sound_player.play(
 			"wind", "assets/sounds/wind_000.mp3", loop=True, volume=0.2
 		)
-		pass
 
 	def setup_players(self):
 		# First Person Player
@@ -114,7 +113,7 @@ class MazeScene(Scene):
 			position=(2, 2, 3.0),
 			rotation=(0, 0),
 			near_clip=0.01,
-			debug_mode=False,
+			debug_mode=True,
 		)
 		self.engine.renderer.set_camera(self.player.camera)
 		self.engine.input_handler.set_mouse_locked(True)
@@ -229,8 +228,8 @@ class MazeScene(Scene):
 			self.use_free_cam = not self.use_free_cam
 
 			# Free Camera ON
-			if self.use_free_cam:
-				self.set_freecam_to_player()
+			# if self.use_free_cam:
+			# 	self.set_freecam_to_player()
 
 			# Free Camera OFF
 			# if not self.use_free_cam:
@@ -251,6 +250,7 @@ class MazeScene(Scene):
 
 	def update(self, dt):
 		super().update(dt)
+
 		# Physics
 		self.engine.physics.doPhysics(dt)
 
