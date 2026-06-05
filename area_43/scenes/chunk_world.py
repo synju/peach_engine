@@ -124,7 +124,7 @@ class ChunkWorldScene(Scene):
         self.third_person_player = ThirdPersonPlayer(
             self.engine,
             self.engine.physics,
-            position=(9, 9, 7.5),
+            position=(8, 9, 7.5),
             rotation=(0, 0),
             near_clip=0.01,
             debug_mode=True,
