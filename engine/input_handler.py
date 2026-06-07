@@ -247,11 +247,11 @@ class InputHandler(DirectObject):
 		"""Get current mouse position in pixels"""
 		return self._mouse_pos
 
-	def set_mouse_locked(self, locked):
+	def set_mouse_locked(self, locked, hidden):
 		"""Lock/unlock mouse to window center"""
 		self.mouse_locked = locked
 		props = WindowProperties()
-		props.setCursorHidden(locked)
+		props.setCursorHidden(hidden)
 		props.setMouseMode(WindowProperties.M_confined if locked else WindowProperties.M_absolute)
 		base.win.requestProperties(props)
 

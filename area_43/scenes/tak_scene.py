@@ -1,5 +1,7 @@
 from area_43.free_flying_camera import FreeFlyingCamera
 from area_43.tak_level.board_block import BoardBlock
+from area_43.tak_level.flat import Flat
+from area_43.tak_level.table import Table
 from engine.light import AmbientLight, DirectionalLight
 from engine.scene import Scene
 from engine.skybox import Skybox
@@ -25,6 +27,8 @@ class TakScene(Scene):
 
         # Level
         self.board_blocks = []
+        self.flats = []
+        self.table = None
 
     def on_enter(self):
         super().on_enter()
@@ -94,19 +98,30 @@ class TakScene(Scene):
 
     def setup_cameras(self):
         # Setup free camera
-        self.free_cam = FreeFlyingCamera(self.engine, position=(0, -5, 3))
+        self.free_cam = FreeFlyingCamera(
+            self.engine, position=(-4, -7, 4), rotation=(-20.76, -31.88)
+        )
         self.engine.renderer.set_camera(self.free_cam)
-        self.engine.input_handler.set_mouse_locked(True)
+        self.engine.input_handler.set_mouse_locked(locked=True, hidden=True)
 
     def setup_level(self):
         # Create 5x5 checkerboard
         for y in range(5):
             for x in range(5):
                 color = BoardBlock.BLACK if (x + y) % 2 == 0 else BoardBlock.WHITE
-                block = BoardBlock(
-                    self.engine, color, offset_x=x * 2, offset_y=y * 2, offset_z=0
-                )
+                block = BoardBlock(self.engine, color, x=x * 2, y=y * 2, z=-0.125)
                 self.board_blocks.append(block)
+
+        # Create a stack of 4 flats on top of first board block
+        z = 0.25
+        colors = [Flat.BLACK, Flat.WHITE, Flat.BLACK, Flat.WHITE]
+        for color in colors:
+            flat = Flat(self.engine, color, x=0, y=0, z=z)
+            self.flats.append(flat)
+            z += 0.5
+
+        # Create table beneath the board
+        self.table = Table(self.engine, x=4, y=4, z=-0.75)
 
     def handle_input(self, input_handler):
         super().handle_input(input_handler)
@@ -118,6 +133,13 @@ class TakScene(Scene):
         # Send input to free cam
         self.free_cam.handle_input(input_handler)
 
+        # IF mouse 3 then
+        if input_handler.is_mouse_pressed(3):
+            self.engine.input_handler.set_mouse_locked(locked=True, hidden=True)
+        # ELSE
+        else:
+            self.engine.input_handler.set_mouse_locked(locked=False, hidden=False)
+
     def update(self, dt):
         super().update(dt)
 
@@ -127,6 +149,16 @@ class TakScene(Scene):
         # Free Cam updates - Skip if console is open
         if not self.engine.scene_handler.console.is_open:
             self.free_cam.update(dt)
+
+        # print xyz location of free camera here
+        # print(
+        #     f"FreeCam: X={self.free_cam.position[0]:.2f}, Y={self.free_cam.position[1]:.2f}, Z={self.free_cam.position[2]:.2f}"
+        # )
+
+        # print orientation of free camera
+        # print(
+        #     f"FreeCam: Pitch={self.free_cam.pitch:.2f}, Heading={self.free_cam.heading:.2f}"
+        # )
 
     def on_exit(self):
         super().on_exit()
@@ -138,5 +170,9 @@ class TakScene(Scene):
             self.skybox.destroy()
         for block in self.board_blocks:
             block.destroy()
+        for flat in self.flats:
+            flat.destroy()
+        if self.table:
+            self.table.destroy()
         if self.free_cam:
             self.free_cam.destroy()

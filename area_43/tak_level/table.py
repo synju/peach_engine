@@ -3,15 +3,13 @@ from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexWriter
 from panda3d.core import Geom, GeomTriangles, GeomNode
 
 
-class BoardBlock:
-    BLACK = (0.1, 0.1, 0.1, 1.0)
-    WHITE = (0.9, 0.9, 0.9, 1.0)
+class Table:
+    WOOD = (0.6, 0.4, 0.2, 1.0)
 
-    def __init__(self, engine, color=WHITE, x=0, y=0, z=0):
+    def __init__(self, engine, x=0, y=0, z=0):
         self.engine = engine
-        self.color = color
         self.position = (x, y, z)
-        self.mesh = MeshObject(engine, "BoardBlock")
+        self.mesh = MeshObject(engine, "Table")
         self.mesh_node = None
         self._build_mesh()
 
@@ -20,7 +18,7 @@ class BoardBlock:
             self.mesh_node.removeNode()
 
         format = GeomVertexFormat.get_v3n3c4()
-        vdata = GeomVertexData("board_block_verts", format, Geom.UHStatic)
+        vdata = GeomVertexData("table_verts", format, Geom.UHStatic)
 
         vertex = GeomVertexWriter(vdata, "vertex")
         normal = GeomVertexWriter(vdata, "normal")
@@ -29,14 +27,13 @@ class BoardBlock:
         tris = GeomTriangles(Geom.UHStatic)
         vertex_index = 0
 
-        # Dimensions: width=2, height=0.25, length=2
-        w, h, l = 2.0, 0.25, 2.0
+        # Table dimensions
+        w, h, l = 12.0, 1.0, 12.0
         hw, hh, hl = w / 2, h / 2, l / 2
         ox, oy, oz = self.position
 
-        # 6 faces of a box
         faces = [
-            # face 0: -X (left) - BLACK
+            # face 0: -X (left)
             {
                 "verts": [
                     (ox - hw, oy - hl, oz - hh),
@@ -46,7 +43,7 @@ class BoardBlock:
                 ],
                 "norms": [(-1, 0, 0)] * 4,
             },
-            # face 1: +X (right) - WHITE
+            # face 1: +X (right)
             {
                 "verts": [
                     (ox + hw, oy - hl, oz + hh),
@@ -56,7 +53,7 @@ class BoardBlock:
                 ],
                 "norms": [(1, 0, 0)] * 4,
             },
-            # face 2: -Y (back) - RED
+            # face 2: -Y (back)
             {
                 "verts": [
                     (ox + hw, oy - hl, oz - hh),
@@ -66,7 +63,7 @@ class BoardBlock:
                 ],
                 "norms": [(0, -1, 0)] * 4,
             },
-            # face 3: +Y (front) - GREEN
+            # face 3: +Y (front)
             {
                 "verts": [
                     (ox - hw, oy + hl, oz - hh),
@@ -76,7 +73,7 @@ class BoardBlock:
                 ],
                 "norms": [(0, 1, 0)] * 4,
             },
-            # face 4: -Z (bottom) - BLUE
+            # face 4: -Z (bottom)
             {
                 "verts": [
                     (ox - hw, oy - hl, oz - hh),
@@ -86,7 +83,7 @@ class BoardBlock:
                 ],
                 "norms": [(0, 0, -1)] * 4,
             },
-            # face 5: +Z (top) - GREY
+            # face 5: +Z (top)
             {
                 "verts": [
                     (ox - hw, oy - hl, oz + hh),
@@ -105,9 +102,8 @@ class BoardBlock:
             for j, v in enumerate(verts):
                 vertex.addData3(*v)
                 normal.addData3(*norms[j])
-                color.addData4(*self.color)
+                color.addData4(*self.WOOD)
 
-            # Flip winding for faces that need it (0, 1, 4, 5)
             if i in (0, 1, 4, 5):
                 tris.addVertices(vertex_index, vertex_index + 2, vertex_index + 1)
                 tris.addVertices(vertex_index, vertex_index + 3, vertex_index + 2)
@@ -121,7 +117,7 @@ class BoardBlock:
         geom = Geom(vdata)
         geom.addPrimitive(tris)
 
-        node = GeomNode("board_block")
+        node = GeomNode("table")
         node.addGeom(geom)
 
         self.mesh_node = self.mesh.node.attachNewNode(node)
