@@ -34,6 +34,9 @@ class TakScene(Scene):
         self.flats = []
         self.table = None
 
+        # Mouse Boolean
+        self.right_mouse_down = False
+
     def on_enter(self):
         super().on_enter()
 
@@ -134,15 +137,19 @@ class TakScene(Scene):
         if self.engine.scene_handler.console.is_open:
             return
 
-        # Send input to free cam
-        self.free_cam.handle_input(input_handler)
-
         # IF mouse 3 then
         if input_handler.is_mouse_pressed(3):
-            self.engine.input_handler.set_mouse_locked(locked=True)
+            if not self.right_mouse_down:
+                self.right_mouse_down = True
+                self.engine.input_handler.set_mouse_locked(locked=True)
         # ELSE
         else:
             self.engine.input_handler.set_mouse_locked(locked=False)
+
+        # Send input to free cam
+        self.free_cam.handle_input(input_handler)
+
+
 
     def update(self, dt):
         super().update(dt)
