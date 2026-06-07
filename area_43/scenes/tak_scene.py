@@ -1,3 +1,5 @@
+from direct.showbase.ShowBase import ShowBase
+from panda3d.core import WindowProperties
 from area_43.free_flying_camera import FreeFlyingCamera
 from area_43.tak_level.board_block import BoardBlock
 from area_43.tak_level.flat import Flat
@@ -5,6 +7,8 @@ from area_43.tak_level.table import Table
 from engine.light import AmbientLight, DirectionalLight
 from engine.scene import Scene
 from engine.skybox import Skybox
+
+base: ShowBase
 
 
 class TakScene(Scene):
@@ -102,7 +106,7 @@ class TakScene(Scene):
             self.engine, position=(-4, -7, 4), rotation=(-20.76, -31.88)
         )
         self.engine.renderer.set_camera(self.free_cam)
-        self.engine.input_handler.set_mouse_locked(locked=True, hidden=True)
+        self.engine.input_handler.set_mouse_locked(locked=False)
 
     def setup_level(self):
         # Create 5x5 checkerboard
@@ -135,10 +139,10 @@ class TakScene(Scene):
 
         # IF mouse 3 then
         if input_handler.is_mouse_pressed(3):
-            self.engine.input_handler.set_mouse_locked(locked=True, hidden=True)
+            self.engine.input_handler.set_mouse_locked(locked=True)
         # ELSE
         else:
-            self.engine.input_handler.set_mouse_locked(locked=False, hidden=False)
+            self.engine.input_handler.set_mouse_locked(locked=False)
 
     def update(self, dt):
         super().update(dt)
