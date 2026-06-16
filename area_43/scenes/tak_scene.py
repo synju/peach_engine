@@ -4,6 +4,7 @@ from area_43.free_flying_camera import FreeFlyingCamera
 from area_43.tak_level.board_block import BoardBlock
 from area_43.tak_level.flat import Flat
 from area_43.tak_level.table import Table
+from area_43.cameras.tak_orbit_camera import TakOrbitCamera
 from engine.light import AmbientLight, DirectionalLight
 from engine.scene import Scene
 from engine.skybox import Skybox
@@ -28,6 +29,9 @@ class TakScene(Scene):
         # Free Flying Camera
         self.free_cam = None
         self.use_free_cam = False
+
+        # Orbit Camera
+        self.orbit_cam = None
 
         # Level
         self.board_blocks = []
@@ -113,7 +117,15 @@ class TakScene(Scene):
         self.free_cam = FreeFlyingCamera(
             self.engine, position=(-4, -7, 4), rotation=(-20.76, -31.88)
         )
-        self.engine.renderer.set_camera(self.free_cam)
+
+        # Setup orbit camera (centered on board at 4, 4)
+        self.orbit_cam = TakOrbitCamera(self.engine, center=(4, 4, 0), distance=15.0)
+
+        # Set initial camera based on mode
+        if self.camera_mode == self.camera_orbit_mode:
+            self.engine.renderer.set_camera(self.orbit_cam)
+        else:
+            self.engine.renderer.set_camera(self.free_cam)
         self.engine.input_handler.set_mouse_locked(locked=False)
 
     def setup_level(self):
@@ -142,18 +154,39 @@ class TakScene(Scene):
         if self.engine.scene_handler.console.is_open:
             return
 
-        # IF mouse 3 then
-        if input_handler.is_mouse_pressed(3):
-            if not self.right_mouse_down:
-                self.right_mouse_down = True
-                self.engine.input_handler.set_mouse_locked(locked=True)
-        # ELSE
-        else:
-            self.right_mouse_down = False
-            self.engine.input_handler.set_mouse_locked(locked=False)
+        # Camera switching
+        if input_handler.is_key_down("c"):
+            if self.camera_mode == self.camera_orbit_mode:
+                self.camera_mode = self.camera_free_mode
+                self.engine.renderer.set_camera(self.free_cam)
+            else:
+                self.camera_mode = self.camera_orbit_mode
+                self.engine.renderer.set_camera(self.orbit_cam)
 
-        # Send input to free cam
-        self.free_cam.handle_input(input_handler)
+        if self.camera_mode == self.camera_orbit_mode:
+            # Orbit camera mode - lock mouse on right click
+            if input_handler.is_mouse_pressed(3):
+                if not self.right_mouse_down:
+                    self.right_mouse_down = True
+                    self.engine.input_handler.set_mouse_locked(locked=True)
+            else:
+                self.right_mouse_down = False
+                self.engine.input_handler.set_mouse_locked(locked=False)
+            self.orbit_cam.handle_input(input_handler)
+        else:
+            # Free camera mode
+            # IF mouse 3 then
+            if input_handler.is_mouse_pressed(3):
+                if not self.right_mouse_down:
+                    self.right_mouse_down = True
+                    self.engine.input_handler.set_mouse_locked(locked=True)
+            # ELSE
+            else:
+                self.right_mouse_down = False
+                self.engine.input_handler.set_mouse_locked(locked=False)
+
+            # Send input to free cam
+            self.free_cam.handle_input(input_handler)
 
     def update(self, dt):
         super().update(dt)
@@ -161,9 +194,12 @@ class TakScene(Scene):
         # Physics
         self.engine.physics.doPhysics(dt)
 
-        # Free Cam updates - Skip if console is open
+        # Camera updates - Skip if console is open
         if not self.engine.scene_handler.console.is_open:
-            self.free_cam.update(dt)
+            if self.camera_mode == self.camera_orbit_mode:
+                self.orbit_cam.update(dt)
+            else:
+                self.free_cam.update(dt)
 
         # print xyz location of free camera here
         # print(
@@ -191,3 +227,5 @@ class TakScene(Scene):
             self.table.destroy()
         if self.free_cam:
             self.free_cam.destroy()
+        if self.orbit_cam:
+            self.orbit_cam.destroy()
