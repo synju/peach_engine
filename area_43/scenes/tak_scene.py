@@ -1,6 +1,7 @@
 from direct.showbase.ShowBase import ShowBase
 from panda3d.core import WindowProperties
 from area_43.cameras.free_flying_camera import FreeFlyingCamera
+from area_43.tak_level.board import Board
 from area_43.tak_level.board_block import BoardBlock
 from area_43.tak_level.flat import Flat
 from area_43.tak_level.table import Table
@@ -35,6 +36,7 @@ class TakScene(Scene):
         self.orbit_cam = None
 
         # Level
+        self.board = None
         self.board_blocks = []
         self.flats = []
         self.table = None
@@ -130,23 +132,19 @@ class TakScene(Scene):
         self.engine.input_handler.set_mouse_locked(locked=False)
 
     def setup_level(self):
-        # Create 5x5 checkerboard
-        for y in range(5):
-            for x in range(5):
-                color = BoardBlock.BLACK if (x + y) % 2 == 0 else BoardBlock.WHITE
-                block = BoardBlock(self.engine, color, x=x * 2, y=y * 2, z=-0.125)
-                self.board_blocks.append(block)
+        # Create Board
+        self.board = Board(self.engine, size=5)
 
         # Create a stack of 4 flats on top of first board block
-        z = 0.25
-        colors = [Flat.BLACK, Flat.WHITE, Flat.BLACK, Flat.WHITE]
+        layer_index = 0
+        colors = [Flat.BLACK, Flat.WHITE]
         for color in colors:
-            flat = Flat(self.engine, color, x=0, y=0, z=z)
+            flat = Flat(self.engine, color, x=0, y=0, layer_index=layer_index)
             self.flats.append(flat)
-            z += 0.5
+            layer_index+=1
 
         # Create table beneath the board
-        self.table = Table(self.engine, x=4, y=4, z=-0.75)
+        self.table = Table(self.engine, x=4, y=4, z=-0.5)
 
     def handle_input(self, input_handler):
         super().handle_input(input_handler)

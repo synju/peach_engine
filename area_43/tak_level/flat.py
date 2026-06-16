@@ -6,10 +6,15 @@ from panda3d.core import Geom, GeomTriangles, GeomNode
 class Flat:
     BLACK = (0.1, 0.1, 0.1, 1.0)
     WHITE = (0.9, 0.9, 0.9, 1.0)
+    WIDTH = 1.5
+    HEIGHT = 0.5
+    LENGTH = 1.5
 
-    def __init__(self, engine, color=WHITE, x=0, y=0, z=0):
+    def __init__(self, engine, color=WHITE, x=0, y=0, layer_index=0):
         self.engine = engine
         self.color = color
+        self.layer_index = layer_index
+        z = (layer_index + 1) * Flat.HEIGHT
         self.position = (x, y, z)
         self.mesh = MeshObject(engine, "Flat")
         self.mesh_node = None
@@ -29,9 +34,9 @@ class Flat:
         tris = GeomTriangles(Geom.UHStatic)
         vertex_index = 0
 
-        # Dimensions: width=1.8, height=0.2, length=1.8
-        w, h, l = 1.5, 0.5, 1.5
-        hw, hh, hl = w / 2, h / 2, l / 2
+        # Dimensions: width=1.5, height=0.5, length=1.5
+        w, h, l = Flat.WIDTH, Flat.HEIGHT, Flat.LENGTH
+        hw, hh, hl = Flat.WIDTH / 2, Flat.HEIGHT / 2, Flat.LENGTH / 2
         ox, oy, oz = self.position
 
         # 6 faces of a box
