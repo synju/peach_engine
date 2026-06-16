@@ -37,6 +37,11 @@ class TakScene(Scene):
         # Mouse Boolean
         self.right_mouse_down = False
 
+        # Camera Modes
+        self.camera_orbit_mode = 0
+        self.camera_free_mode = 1
+        self.camera_mode = self.camera_free_mode
+
     def on_enter(self):
         super().on_enter()
 
@@ -144,12 +149,11 @@ class TakScene(Scene):
                 self.engine.input_handler.set_mouse_locked(locked=True)
         # ELSE
         else:
+            self.right_mouse_down = False
             self.engine.input_handler.set_mouse_locked(locked=False)
 
         # Send input to free cam
         self.free_cam.handle_input(input_handler)
-
-
 
     def update(self, dt):
         super().update(dt)
