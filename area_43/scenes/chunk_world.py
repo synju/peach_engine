@@ -1,7 +1,7 @@
 from area_43.maze_level.maze import Maze
 from area_43.maze_level.chunk import Chunk
 from area_43.player import Player
-from area_43.free_flying_camera import FreeFlyingCamera
+from area_43.cameras.free_flying_camera import FreeFlyingCamera
 from area_43.third_person_player import ThirdPersonPlayer
 from engine.light import AmbientLight, DirectionalLight
 from engine.scene import Scene
@@ -272,7 +272,9 @@ class ChunkWorldScene(Scene):
             else:
                 self.player.update(dt)
 
-        print(f"X: {self.player.position[0]}, Y: {self.player.position[1]}, Z: {self.player.position[2]}")
+        print(
+            f"X: {self.player.position[0]}, Y: {self.player.position[1]}, Z: {self.player.position[2]}"
+        )
 
     def on_exit(self):
         super().on_exit()

@@ -1,11 +1,12 @@
 from direct.showbase.ShowBase import ShowBase
 from panda3d.core import WindowProperties
-from area_43.free_flying_camera import FreeFlyingCamera
+from area_43.cameras.free_flying_camera import FreeFlyingCamera
 from area_43.tak_level.board_block import BoardBlock
 from area_43.tak_level.flat import Flat
 from area_43.tak_level.table import Table
-from area_43.cameras.tak_orbit_camera import TakOrbitCamera
+from area_43.cameras.orbit_camera import OrbitCamera
 from engine.light import AmbientLight, DirectionalLight
+from engine.renderer import Renderer
 from engine.scene import Scene
 from engine.skybox import Skybox
 
@@ -44,7 +45,7 @@ class TakScene(Scene):
         # Camera Modes
         self.camera_orbit_mode = 0
         self.camera_free_mode = 1
-        self.camera_mode = self.camera_free_mode
+        self.camera_mode = self.camera_orbit_mode
 
     def on_enter(self):
         super().on_enter()
@@ -119,7 +120,7 @@ class TakScene(Scene):
         )
 
         # Setup orbit camera (centered on board at 4, 4)
-        self.orbit_cam = TakOrbitCamera(self.engine, center=(4, 4, 0), distance=15.0)
+        self.orbit_cam = OrbitCamera(self.engine, target=(4, 4, 0), distance=15.0)
 
         # Set initial camera based on mode
         if self.camera_mode == self.camera_orbit_mode:
@@ -156,22 +157,34 @@ class TakScene(Scene):
 
         # Camera switching
         if input_handler.is_key_down("c"):
+            # Switch to Free FLying Camera
             if self.camera_mode == self.camera_orbit_mode:
+                # Change Camera Mode
                 self.camera_mode = self.camera_free_mode
+
+                # Switch Camera
                 self.engine.renderer.set_camera(self.free_cam)
+
+            # Switch to Orbit Camera
             else:
+                # Change Camera Mode
                 self.camera_mode = self.camera_orbit_mode
+
+                # Switch Camera
                 self.engine.renderer.set_camera(self.orbit_cam)
 
+        # Quit
+        if input_handler.is_key_down("q"):
+            self.engine.quit()
+
+        # Reset camera position
+        if input_handler.is_key_down("r"):
+            if self.camera_mode == self.camera_orbit_mode:
+                self.orbit_cam.reset()
+            elif self.camera_mode == self.camera_free_mode:
+                self.free_cam.reset()
+
         if self.camera_mode == self.camera_orbit_mode:
-            # Orbit camera mode - lock mouse on right click
-            if input_handler.is_mouse_pressed(3):
-                if not self.right_mouse_down:
-                    self.right_mouse_down = True
-                    self.engine.input_handler.set_mouse_locked(locked=True)
-            else:
-                self.right_mouse_down = False
-                self.engine.input_handler.set_mouse_locked(locked=False)
             self.orbit_cam.handle_input(input_handler)
         else:
             # Free camera mode
