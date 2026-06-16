@@ -141,7 +141,14 @@ class TakScene(Scene):
         for color in colors:
             flat = Flat(self.engine, color, x=0, y=0, layer_index=layer_index)
             self.flats.append(flat)
-            layer_index+=1
+            layer_index += 1
+
+        # Place a stack at 1,2
+        from area_43.tak_level.stack import Stack
+
+        self.stack = Stack(board_x=1, board_y=2)
+        self.stack.push(self.engine, Flat.BLACK)
+        self.stack.push(self.engine, Flat.BLACK)
 
         # Create table beneath the board
         self.table = Table(self.engine, x=4, y=4, z=-0.5)

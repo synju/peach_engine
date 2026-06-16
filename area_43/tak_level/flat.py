@@ -34,8 +34,7 @@ class Flat:
         tris = GeomTriangles(Geom.UHStatic)
         vertex_index = 0
 
-        # Dimensions: width=1.5, height=0.5, length=1.5
-        w, h, l = Flat.WIDTH, Flat.HEIGHT, Flat.LENGTH
+        # Dimensions
         hw, hh, hl = Flat.WIDTH / 2, Flat.HEIGHT / 2, Flat.LENGTH / 2
         ox, oy, oz = self.position
 

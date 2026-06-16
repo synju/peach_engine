@@ -7,6 +7,10 @@ class BoardBlock:
     BLACK = (0.1, 0.1, 0.1, 1.0)
     WHITE = (0.9, 0.9, 0.9, 1.0)
 
+    WIDTH = 2.0
+    HEIGHT = 0.25
+    LENGTH = 2.0
+
     def __init__(self, engine, color=WHITE, x=0, y=0, z=0):
         self.engine = engine
         self.color = color
@@ -29,9 +33,8 @@ class BoardBlock:
         tris = GeomTriangles(Geom.UHStatic)
         vertex_index = 0
 
-        # Dimensions: width=2, height=0.25, length=2
-        w, h, l = 2.0, 0.25, 2.0
-        hw, hh, hl = w / 2, h / 2, l / 2
+        # Dimensions
+        hw, hh, hl = BoardBlock.WIDTH / 2, BoardBlock.HEIGHT / 2, BoardBlock.LENGTH / 2
         ox, oy, oz = self.position
 
         # 6 faces of a box

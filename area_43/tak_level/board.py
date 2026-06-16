@@ -12,7 +12,6 @@ class Board:
         for y in range(self.size):
             for x in range(self.size):
                 color = BoardBlock.BLACK if (x + y) % 2 == 0 else BoardBlock.WHITE
-                #block = BoardBlock(self.engine, color, x=x * 2, y=y * 2, z=-0.125)
                 block = BoardBlock(self.engine, color, x=x * 2, y=y * 2, z=0.125)
                 self.blocks.append(block)
 
